@@ -3,6 +3,7 @@
 
 #include "pipe_sem.h"
 
+
 // Defines a mutex whose lock can be acquired once.
 typedef struct
 {

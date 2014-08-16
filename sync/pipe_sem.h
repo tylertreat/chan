@@ -1,6 +1,7 @@
 #ifndef pipe_sem_h
 #define pipe_sem_h
 
+
 // Defines a semaphore using a pipe. The number of bytes in the pipe determines
 // the semaphore value.
 typedef int pipe_sem_t[2];
