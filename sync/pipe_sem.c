@@ -11,9 +11,6 @@
 #include "pipe_sem.h"
 
 
-static void release_lock(pipe_sem_t *sem);
-
-
 // Initializes a semaphore and sets its initial value.
 void pipe_sem_init(pipe_sem_t** sem, int value)
 {
@@ -24,60 +21,42 @@ void pipe_sem_init(pipe_sem_t** sem, int value)
         *sem = NULL;
         return;
     }
-    (*sem)->value = value;
     
-    // Initialize the pipe
-    if (pipe((*sem)->fd) != 0)
+    // Initialize the pipe.
+    if (pipe(**sem) != 0)
     {
         perror("Failed to initialize semaphore\n");
-        free(sem);
+        free(*sem);
         *sem = NULL;
         return;
     }
-    
-    release_lock(*sem);
+
+    // Set the value.
+    int i;
+    for (i = 0; i < value; i++)
+    {
+        pipe_sem_signal(**sem);
+    }
 }
 
 // Releases the semaphore resources.
-void pipe_sem_dispose(pipe_sem_t* sem)
+void pipe_sem_dispose(pipe_sem_t sem)
 {
-    close(sem->fd[0]);
-    close(sem->fd[1]);
+    close(sem[0]);
+    close(sem[1]);
     free(sem);
 }
 
 // Performs a wait operation on the semaphore.
-void pipe_sem_wait(pipe_sem_t* sem)
+void pipe_sem_wait(pipe_sem_t sem)
 {
-    // TODO: Not threadsafe. Fix.
-    while (sem->value == 0)
-    {
-        // Block the thread by reading from pipe
-        char buff[10];
-        read(sem->fd[0], buff, 10);
-    }
-    sem->value--;
+    // Block the thread by reading from pipe.
+    char buf[1];
+    read(sem[0], buf, 1);
 }
 
 // Performs a signal operation on the semaphore.
-void pipe_sem_signal(pipe_sem_t* sem)
+void pipe_sem_signal(pipe_sem_t sem)
 {
-    sem->value++;
-    release_lock(sem);
-}
-
-static void release_lock(pipe_sem_t* sem)
-{
-    int pid = fork();
-    if (pid < 0)
-    {
-        perror("Failed to release lock\n");
-        return;
-    }
-    if (pid == 0)
-    {
-        // Release lock by writing to pipe
-        write(sem->fd[1], "ok", 10);
-        exit(0);
-    }
+    write(sem[1], "1", 1);
 }

@@ -30,7 +30,7 @@ mutex_t* mutex_init()
     if (mu == NULL)
     {
         perror("Failed to allocate mutex");
-        pipe_sem_dispose(sem);
+        pipe_sem_dispose(*sem);
     }
     
     mu->sem = sem;
@@ -40,18 +40,18 @@ mutex_t* mutex_init()
 // Releases the mutex resources.
 void mutex_dispose(mutex_t* mu)
 {
-    pipe_sem_dispose(mu->sem);
+    pipe_sem_dispose(*mu->sem);
     free(mu);
 }
 
 // Acquires a lock on the mutex.
 void mutex_lock(mutex_t* mu)
 {
-    pipe_sem_wait(mu->sem);
+    pipe_sem_wait(*mu->sem);
 }
 
 // Releases the lock on the mutex.
 void mutex_unlock(mutex_t* mu)
 {
-    pipe_sem_signal(mu->sem);
+    pipe_sem_signal(*mu->sem);
 }
