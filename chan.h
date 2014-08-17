@@ -43,7 +43,7 @@ int chan_send(chan_t* chan, void* value);
 
 // Receives a value from the channel. This will block until there is data to
 // receive.
-void* chan_recv(chan_t* chan);
+int chan_recv(chan_t* chan, void** value);
 
 // Returns the number of items in the channel buffer. If the channel is
 // unbuffered, this will return 0.

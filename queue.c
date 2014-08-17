@@ -125,6 +125,18 @@ void* queue_remove(queue_t** queue)
     return value;
 }
 
+void* queue_peek(queue_t* queue)
+{
+    if (queue->size == 0)
+    {
+        // Empty queue.
+        return NULL;
+    }
+
+    // Read the head of the queue.
+    return queue->head->value;
+}
+
 // Returns 0 if the queue is not at capacity or is unbounded. Returns 1
 // otherwise.
 static int queue_at_capacity(queue_t* queue)

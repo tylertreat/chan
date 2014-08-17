@@ -33,4 +33,6 @@ int queue_add(queue_t** queue, void* value);
 // Dequeues an item from the queue. Returns NULL if the queue is empty.
 void* queue_remove(queue_t** queue);
 
+void* queue_peek(queue_t*);
+
 #endif

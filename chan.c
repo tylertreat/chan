@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "chan.h"
@@ -17,11 +18,11 @@
 
 static int buffered_chan_init(chan_t* chan, int capacity);
 static int buffered_chan_send(chan_t* chan, void* value);
-static void* buffered_chan_recv(chan_t* chan);
+static int buffered_chan_recv(chan_t* chan, void** value);
 
 static int unbuffered_chan_init(chan_t* chan);
 static int unbuffered_chan_send(chan_t* chan, void* value);
-static void* unbuffered_chan_recv(chan_t* chan);
+static int unbuffered_chan_recv(chan_t* chan, void** value);
 
 // Allocates and returns a new channel. The capacity specifies whether the
 // channel should be buffered or not. A capacity of 0 will create an unbuffered
@@ -172,13 +173,16 @@ void chan_dispose(chan_t* chan)
         queue_dispose(chan->queue);
         reentrant_lock_dispose(chan->lock);
     }
+    else
+    {
+        mutex_dispose(chan->w_mu);
+        mutex_dispose(chan->r_mu);
+        close(chan->rw_pipe[0]);
+        close(chan->rw_pipe[1]);
+    }
 
-    mutex_dispose(chan->w_mu);
-    mutex_dispose(chan->r_mu);
     pthread_mutex_destroy(chan->m_mu);
     pthread_cond_destroy(chan->m_cond);
-    close(chan->rw_pipe[0]);
-    close(chan->rw_pipe[1]);
     free(chan);
 }
 
@@ -235,14 +239,14 @@ static int unbuffered_chan_send(chan_t* chan, void* value)
 
 // Receives a value from the channel. This will block until there is data to
 // receive.
-void* chan_recv(chan_t* chan)
+int chan_recv(chan_t* chan, void** value)
 {
     return chan->buffered ?
-        buffered_chan_recv(chan) :
-        unbuffered_chan_recv(chan);
+        buffered_chan_recv(chan, value) :
+        unbuffered_chan_recv(chan, value);
 }
 
-static void* buffered_chan_recv(chan_t* chan)
+static int buffered_chan_recv(chan_t* chan, void** value)
 {
     reentrant_lock(chan->lock);
     while (chan->queue->size == 0)
@@ -253,7 +257,7 @@ static void* buffered_chan_recv(chan_t* chan)
         reentrant_lock(chan->lock);
     }
 
-    void* value = queue_remove(&chan->queue);
+    *value = queue_remove(&chan->queue);
 
     if (chan->queue->size == chan->queue->capacity - 1)
     {
@@ -262,21 +266,20 @@ static void* buffered_chan_recv(chan_t* chan)
     }
 
     reentrant_unlock(chan->lock);
-    return value;
+    return 0;
 }
 
-static void* unbuffered_chan_recv(chan_t* chan)
+static int unbuffered_chan_recv(chan_t* chan, void** value)
 {
     mutex_lock(chan->r_mu);
     chan->readers++;
     pthread_cond_signal(chan->m_cond);
 
-    void* buf;
-    read(chan->rw_pipe[0], buf, sizeof(void*));
+    read(chan->rw_pipe[0], value, sizeof(void*));
 
     chan->readers--;
     mutex_unlock(chan->r_mu);
-    return buf;
+    return 0;
 }
 
 // Returns the number of items in the channel buffer. If the channel is
