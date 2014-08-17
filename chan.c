@@ -58,7 +58,6 @@ int chan_send(chan_t** chan, void* value)
     reentrant_lock((*chan)->lock);
     if (_chan_at_capacity(*chan))
     {
-        printf("at capacity\n");
         reentrant_unlock((*chan)->lock);
         return 0;
     }
