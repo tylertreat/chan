@@ -12,8 +12,14 @@
 #include "sync/reentrant_lock.h"
 
 
-// Allocates and returns a new channel. Returns NULL if initialization failed.
-chan_t* chan_init()
+// Returns 0 if the channel is not at capacity or is unbounded. Returns 1
+// otherwise.
+static int _chan_at_capacity(chan_t* chan);
+
+// Allocates and returns a new channel. The capacity specifies the maximum
+// number of items that can be in the channel at one time. A capacity of -1
+// means the channel is unbounded. Returns NULL if initialization failed.
+chan_t* chan_init(int capacity)
 {
     chan_t* chan = (chan_t*) malloc(sizeof(chan_t));
     if (!chan)
@@ -30,6 +36,7 @@ chan_t* chan_init()
 
     chan->lock = lock;
     chan->size = 0;
+    chan->capacity = capacity;
     return chan;
 }
 
@@ -48,15 +55,23 @@ void chan_dispose(chan_t* chan)
 // succeeded.
 int chan_send(chan_t** chan, void* value)
 {
+    reentrant_lock((*chan)->lock);
+    if (_chan_at_capacity(*chan))
+    {
+        printf("at capacity\n");
+        reentrant_unlock((*chan)->lock);
+        return 0;
+    }
+
     _node_t* item = (_node_t*) malloc(sizeof(_node_t));
     if (!item)
     {
+        reentrant_unlock((*chan)->lock);
         return 0;
     }
 
     item->value = value;
 
-    reentrant_lock((*chan)->lock);
     if ((*chan)->size == 0)
     {
         // Channel is empty.
@@ -133,4 +148,28 @@ int chan_size(chan_t* chan)
     int size = chan->size;
     reentrant_unlock(chan->lock);
     return size;
+}
+
+// Returns 0 if the channel is not at capacity or is unbounded. Returns 1
+// otherwise.
+static int _chan_at_capacity(chan_t* chan)
+{
+    reentrant_lock(chan->lock);
+    int at_capacity;
+
+    if (chan->capacity == -1)
+    {
+        at_capacity = 0;
+    }
+    else if (chan->size >= chan->capacity)
+    {
+        at_capacity = 1;
+    }
+    else
+    {
+        at_capacity = 0;
+    }
+
+    reentrant_unlock(chan->lock);
+    return at_capacity;
 }
