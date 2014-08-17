@@ -12,38 +12,45 @@
 
 
 // Initializes a semaphore and sets its initial value.
-void pipe_sem_init(pipe_sem_t** sem, int value)
+pipe_sem_t* pipe_sem_init(int value)
 {
     if (value < 0)
     {
-        perror("Semaphore value must be greater than or equal to 0\n");
-        free(*sem);
-        *sem = NULL;
-        return;
+        perror("Semaphore value must be greater than or equal to 0");
+        return NULL;
+    }
+
+    // Allocate semaphore.
+    pipe_sem_t* sem = (pipe_sem_t*) malloc(sizeof(pipe_sem_t));
+    if (!sem)
+    {
+        perror("Failed to allocate semaphore");
+        return NULL;
     }
     
     // Initialize the pipe.
-    if (pipe(**sem) != 0)
+    if (pipe(*sem) != 0)
     {
-        perror("Failed to initialize semaphore\n");
-        free(*sem);
-        *sem = NULL;
-        return;
+        perror("Failed to initialize semaphore");
+        free(sem);
+        return NULL;
     }
 
     // Set the value.
     int i;
     for (i = 0; i < value; i++)
     {
-        pipe_sem_signal(**sem);
+        pipe_sem_signal(*sem);
     }
+
+    return sem;
 }
 
 // Releases the semaphore resources.
-void pipe_sem_dispose(pipe_sem_t sem)
+void pipe_sem_dispose(pipe_sem_t* sem)
 {
-    close(sem[0]);
-    close(sem[1]);
+    close(*sem[0]);
+    close(*sem[1]);
     free(sem);
 }
 

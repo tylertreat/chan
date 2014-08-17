@@ -6,12 +6,12 @@
 // the semaphore value.
 typedef int pipe_sem_t[2];
 
-// Initializes a semaphore and sets its initial value. Pointer will be NULL if
-// initialization fails.
-void pipe_sem_init(pipe_sem_t** sem, int value);
+// Initializes a semaphore and sets its initial value. Returns NULL if
+// initialization failed.
+pipe_sem_t* pipe_sem_init(int value);
 
 // Releases the semaphore resources.
-void pipe_sem_dispose(pipe_sem_t sem);
+void pipe_sem_dispose(pipe_sem_t* sem);
 
 // Performs a wait operation on the semaphore.
 void pipe_sem_wait(pipe_sem_t sem);

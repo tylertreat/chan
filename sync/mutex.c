@@ -13,14 +13,7 @@
 // Allocates and returns a new mutex. Returns NULL if initialization failed.
 mutex_t* mutex_init()
 {
-    pipe_sem_t* sem = (pipe_sem_t*) malloc(sizeof(pipe_sem_t));
-    if (sem == NULL)
-    {
-        perror("Failed to allocate semaphore");
-        return NULL;
-    }
-
-    pipe_sem_init(&sem, 1);
+    pipe_sem_t* sem = pipe_sem_init(1);
     if (sem == NULL)
     {
         return NULL;
@@ -30,7 +23,7 @@ mutex_t* mutex_init()
     if (mu == NULL)
     {
         perror("Failed to allocate mutex");
-        pipe_sem_dispose(*sem);
+        pipe_sem_dispose(sem);
     }
     
     mu->sem = sem;
@@ -40,7 +33,7 @@ mutex_t* mutex_init()
 // Releases the mutex resources.
 void mutex_dispose(mutex_t* mu)
 {
-    pipe_sem_dispose(*mu->sem);
+    pipe_sem_dispose(mu->sem);
     free(mu);
 }
 
