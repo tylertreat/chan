@@ -42,19 +42,19 @@ void queue_dispose(queue_t* queue)
     free(queue);
 }
 
-// Enqueues an item in the queue. Returns 0 is the add succeeded or 1 if it
+// Enqueues an item in the queue. Returns 0 is the add succeeded or -1 if it
 // failed.
 int queue_add(queue_t** queue, void* value)
 {
     if (queue_at_capacity(*queue))
     {
-        return 1;
+        return -1;
     }
 
     _node_t* item = (_node_t*) malloc(sizeof(_node_t));
     if (!item)
     {
-        return 1;
+        return -1;
     }
 
     item->value = value;
