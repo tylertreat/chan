@@ -26,11 +26,13 @@ queue_t* queue_init(int capacity);
 // Releases the queue resources.
 void queue_dispose(queue_t* queue);
 
-// Enqueues an item in the queue. Returns 0 if the add succeeded or 1 if it
+// Enqueues an item in the queue. Returns 0 if the add succeeded or -1 if it
 // failed.
 int queue_add(queue_t** queue, void* value);
 
 // Dequeues an item from the queue. Returns NULL if the queue is empty.
 void* queue_remove(queue_t** queue);
+
+void* queue_peek(queue_t*);
 
 #endif

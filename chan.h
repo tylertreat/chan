@@ -38,12 +38,12 @@ void chan_dispose(chan_t* chan);
 // Sends a value into the channel. If the channel is unbuffered, this will
 // block until a receiver receives the value. If the channel is buffered and at
 // capacity, this will block until a receiver receives a value. Returns 0 if
-// the send succeeded or 1 if it failed.
-int chan_send(chan_t* chan, void* value);
+// the send succeeded or -1 if it failed.
+int chan_send(chan_t* chan, void* value, size_t size);
 
 // Receives a value from the channel. This will block until there is data to
-// receive.
-void* chan_recv(chan_t* chan);
+// receive. Returns 0 if the receive succeeded or -1 if it failed.
+int chan_recv(chan_t* chan, void** value, size_t size);
 
 // Returns the number of items in the channel buffer. If the channel is
 // unbuffered, this will return 0.

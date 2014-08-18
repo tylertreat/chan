@@ -42,19 +42,19 @@ void queue_dispose(queue_t* queue)
     free(queue);
 }
 
-// Enqueues an item in the queue. Returns 0 is the add succeeded or 1 if it
+// Enqueues an item in the queue. Returns 0 is the add succeeded or -1 if it
 // failed.
 int queue_add(queue_t** queue, void* value)
 {
     if (queue_at_capacity(*queue))
     {
-        return 1;
+        return -1;
     }
 
     _node_t* item = (_node_t*) malloc(sizeof(_node_t));
     if (!item)
     {
-        return 1;
+        return -1;
     }
 
     item->value = value;
@@ -123,6 +123,18 @@ void* queue_remove(queue_t** queue)
     }
 
     return value;
+}
+
+void* queue_peek(queue_t* queue)
+{
+    if (queue->size == 0)
+    {
+        // Empty queue.
+        return NULL;
+    }
+
+    // Read the head of the queue.
+    return queue->head->value;
 }
 
 // Returns 0 if the queue is not at capacity or is unbounded. Returns 1
