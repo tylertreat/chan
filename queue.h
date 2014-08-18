@@ -30,9 +30,12 @@ void queue_dispose(queue_t* queue);
 // failed.
 int queue_add(queue_t** queue, void* value);
 
-// Dequeues an item from the queue. Returns NULL if the queue is empty.
+// Dequeues an item from the head of the queue. Returns NULL if the queue is
+// empty.
 void* queue_remove(queue_t** queue);
 
+// Returns, but does not remove, the head of the queue. Returns NULL if the
+// queue is empty.
 void* queue_peek(queue_t*);
 
 #endif
