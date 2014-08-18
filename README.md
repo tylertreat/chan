@@ -72,3 +72,73 @@ int main()
 ```
 
 The above program will print `buffered` and then `channel`. The sends do not block because the channel has a capacity of 2. Sending more after that would block until values were received.
+
+## Closing Channels
+
+When a channel is closed, no more values can be sent on it. Receiving on a closed channel will return an indication code that the channel has been closed. This can be useful to communicate completion to the channel’s receivers. If the closed channel is buffered, values will be received on it until empty.
+
+```c
+#include <pthread.h>
+#include <stdint.h>
+#include <stdio.h>
+#include "chan.h"
+
+chan_t* jobs;
+chan_t* done;
+
+void* worker()
+{
+    // Process jobs until channel is closed.
+    void* job;
+    while (chan_recv(jobs, &job) == 0)
+    {
+        printf("received job %d\n", (int) job);
+    }
+
+    // Notify that all jobs were received.
+    printf("received all jobs\n");
+    chan_send(done, "1");
+    return NULL;
+}
+
+int main()
+{
+    // Initialize channels.
+    jobs = chan_init(5);
+    done = chan_init(0);
+
+    pthread_t th;
+    pthread_create(&th, NULL, worker, NULL);
+
+    // Send 3 jobs over the jobs channel then close it.
+    int i;
+    for (i = 1; i <= 3; i++)
+    {
+        chan_send(jobs, (void*) (uintptr_t) i);
+        printf("sent job %d\n", i);
+    }
+    chan_close(jobs);
+    printf("sent all jobs\n");
+
+    // Wait for all jobs to be received.
+    void* d;
+    chan_recv(done, &d);
+
+    // Clean up channels.
+    chan_dispose(jobs);
+    chan_dispose(done);
+}
+```
+
+This program will print:
+
+```
+sent job 1
+received job 1
+sent job 2
+received job 2
+sent job 3
+received job 3
+sent all jobs
+received all jobs
+```
