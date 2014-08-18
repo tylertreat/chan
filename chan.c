@@ -17,12 +17,12 @@
 
 
 static int buffered_chan_init(chan_t* chan, int capacity);
-static int buffered_chan_send(chan_t* chan, chan_msg_t* msg);
-static int buffered_chan_recv(chan_t* chan, chan_msg_t* msg);
+static int buffered_chan_send(chan_t* chan, void* data);
+static int buffered_chan_recv(chan_t* chan, void** data);
 
 static int unbuffered_chan_init(chan_t* chan);
-static int unbuffered_chan_send(chan_t* chan, chan_msg_t* msg);
-static int unbuffered_chan_recv(chan_t* chan, chan_msg_t* msg);
+static int unbuffered_chan_send(chan_t* chan, void* data);
+static int unbuffered_chan_recv(chan_t* chan, void** data);
 
 // Allocates and returns a new channel. The capacity specifies whether the
 // channel should be buffered or not. A capacity of 0 will create an unbuffered
@@ -190,16 +190,16 @@ void chan_dispose(chan_t* chan)
 // block until a receiver receives the value. If the channel is buffered and at
 // capacity, this will block until a receiver receives a value. Returns 0 if
 // the send succeeded or -1 if it failed.
-int chan_send(chan_t* chan, chan_msg_t* msg)
+int chan_send(chan_t* chan, void* data)
 {
     if (chan->buffered)
     {
-        return buffered_chan_send(chan, msg);
+        return buffered_chan_send(chan, data);
     }
-    return unbuffered_chan_send(chan, msg);
+    return unbuffered_chan_send(chan, data);
 }
 
-static int buffered_chan_send(chan_t* chan, chan_msg_t* msg)
+static int buffered_chan_send(chan_t* chan, void* data)
 {
     reentrant_lock(chan->lock);
     while (chan->queue->size == chan->queue->capacity)
@@ -210,7 +210,7 @@ static int buffered_chan_send(chan_t* chan, chan_msg_t* msg)
         reentrant_lock(chan->lock);
     }
 
-    int success = queue_add(&chan->queue, msg);
+    int success = queue_add(&chan->queue, data);
 
     if (chan->queue->size == 1)
     {
@@ -222,7 +222,7 @@ static int buffered_chan_send(chan_t* chan, chan_msg_t* msg)
     return success;
 }
 
-static int unbuffered_chan_send(chan_t* chan, chan_msg_t* msg)
+static int unbuffered_chan_send(chan_t* chan, void* data)
 {
     mutex_lock(chan->w_mu);
     while (chan->readers == 0)
@@ -231,7 +231,7 @@ static int unbuffered_chan_send(chan_t* chan, chan_msg_t* msg)
         pthread_cond_wait(chan->m_cond, chan->m_mu);
     }
 
-    write(chan->rw_pipe[1], &msg, sizeof(chan_msg_t*));
+    write(chan->rw_pipe[1], &data, sizeof(void*));
 
     mutex_unlock(chan->w_mu);
     return 0;
@@ -239,14 +239,14 @@ static int unbuffered_chan_send(chan_t* chan, chan_msg_t* msg)
 
 // Receives a value from the channel. This will block until there is data to
 // receive. Returns 0 if the receive succeeded or -1 if it failed.
-int chan_recv(chan_t* chan, chan_msg_t* msg)
+int chan_recv(chan_t* chan, void** data)
 {
     return chan->buffered ?
-        buffered_chan_recv(chan, msg) :
-        unbuffered_chan_recv(chan, msg);
+        buffered_chan_recv(chan, data) :
+        unbuffered_chan_recv(chan, data);
 }
 
-static int buffered_chan_recv(chan_t* chan, chan_msg_t* msg)
+static int buffered_chan_recv(chan_t* chan, void** data)
 {
     reentrant_lock(chan->lock);
     while (chan->queue->size == 0)
@@ -257,9 +257,7 @@ static int buffered_chan_recv(chan_t* chan, chan_msg_t* msg)
         reentrant_lock(chan->lock);
     }
 
-    chan_msg_t* ptr = queue_remove(&chan->queue);
-    msg->data = ptr->data;
-    free(ptr);
+    *data = queue_remove(&chan->queue);
 
     if (chan->queue->size == chan->queue->capacity - 1)
     {
@@ -271,24 +269,22 @@ static int buffered_chan_recv(chan_t* chan, chan_msg_t* msg)
     return 0;
 }
 
-static int unbuffered_chan_recv(chan_t* chan, chan_msg_t* msg)
+static int unbuffered_chan_recv(chan_t* chan, void** data)
 {
     mutex_lock(chan->r_mu);
     chan->readers++;
     pthread_cond_signal(chan->m_cond);
 
     int success = 0;
-    void* msg_ptr = malloc(sizeof(chan_msg_t*));
+    void* msg_ptr = malloc(sizeof(void*));
     if (!msg_ptr)
     {
         success = -1;
     }
     else
     {
-        read(chan->rw_pipe[0], msg_ptr, sizeof(chan_msg_t*));
-        chan_msg_t* ptr = (chan_msg_t*) *(long*) msg_ptr;
-        msg->data = ptr->data;
-        free(ptr);
+        read(chan->rw_pipe[0], msg_ptr, sizeof(void*));
+        *data = (void*) *(long*) msg_ptr;
     }
 
     chan->readers--;
