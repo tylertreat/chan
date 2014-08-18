@@ -53,9 +53,9 @@ void reentrant_lock_dispose(reentrant_lock_t* lock)
 // lock. Once the lock has been acquired, its counter will be incremented.
 void reentrant_lock(reentrant_lock_t* lock)
 {
-    pthread_t t = pthread_self();
+    pthread_t tid = pthread_self();
     mutex_lock(lock->owner_mu);
-    if (lock->owner == t)
+    if (pthread_equal(lock->owner, tid))
     {
         // Reentrant acquire.
         lock->count++;
@@ -66,7 +66,7 @@ void reentrant_lock(reentrant_lock_t* lock)
     mutex_unlock(lock->owner_mu);
     mutex_lock(lock->mu);
     mutex_lock(lock->owner_mu);
-    lock->owner = t;
+    lock->owner = tid;
     lock->count++;
     mutex_unlock(lock->owner_mu);
 }
