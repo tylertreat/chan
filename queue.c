@@ -37,7 +37,7 @@ void queue_dispose(queue_t* queue)
 {
     while (queue->size > 0)
     {
-        free(queue_remove(&queue));
+        queue_remove(&queue);
     }
     free(queue);
 }
