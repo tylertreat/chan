@@ -26,6 +26,12 @@ typedef struct chan_t
     int               readers;
 } chan_t;
 
+typedef struct chan_msg_t
+{
+    void*  data;
+    size_t size;
+} chan_msg_t;
+
 // Allocates and returns a new channel. The capacity specifies whether the
 // channel should be buffered or not. A capacity of 0 will create an unbuffered
 // channel. Returns NULL if initialization failed or the capacity is less than
@@ -39,11 +45,11 @@ void chan_dispose(chan_t* chan);
 // block until a receiver receives the value. If the channel is buffered and at
 // capacity, this will block until a receiver receives a value. Returns 0 if
 // the send succeeded or -1 if it failed.
-int chan_send(chan_t* chan, void* value, size_t size);
+int chan_send(chan_t* chan, chan_msg_t* msg);
 
 // Receives a value from the channel. This will block until there is data to
 // receive. Returns 0 if the receive succeeded or -1 if it failed.
-int chan_recv(chan_t* chan, void** value, size_t size);
+int chan_recv(chan_t* chan, chan_msg_t* msg);
 
 // Returns the number of items in the channel buffer. If the channel is
 // unbuffered, this will return 0.
