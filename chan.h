@@ -14,16 +14,21 @@
 // copied to the buffer, meaning it will block if the channel is full.
 typedef struct chan_t
 {
+    // Buffered channel properties
     queue_t*          queue;
-    reentrant_lock_t* lock;
-    pthread_mutex_t*  m_mu;
-    pthread_cond_t*   m_cond;
-    int               buffered;
-
+    
+    // Unbuffered channel properties
     mutex_t*          r_mu;
     mutex_t*          w_mu;
     int               rw_pipe[2];
     int               readers;
+
+    // Shared properties
+    reentrant_lock_t* lock;
+    pthread_mutex_t*  m_mu;
+    pthread_cond_t*   m_cond;
+    int               buffered;
+    int               closed;
 } chan_t;
 
 // Allocates and returns a new channel. The capacity specifies whether the
@@ -34,6 +39,17 @@ chan_t* chan_init(int capacity);
 
 // Releases the channel resources.
 void chan_dispose(chan_t* chan);
+
+// Once a channel is closed, data cannot be sent into it. If the channel is
+// buffered, data can be read from it until it is empty, after which reads will
+// return an error code. Reading from a closed channel that is unbuffered will
+// return an error code. Closing a channel does not release its resources. This
+// must be done with a call to chan_dispose. Returns 0 if the channel was
+// successfully closed, -1 otherwise.
+int chan_close(chan_t* chan);
+
+// Returns 0 if the channel is open and 1 if it is closed.
+int chan_is_closed(chan_t* chan);
 
 // Sends a value into the channel. If the channel is unbuffered, this will
 // block until a receiver receives the value. If the channel is buffered and at

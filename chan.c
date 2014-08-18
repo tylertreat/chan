@@ -73,31 +73,29 @@ static int buffered_chan_init(chan_t* chan, int capacity)
         return -1;
     }
 
-    reentrant_lock_t* lock = reentrant_lock_init();
-    if (!lock)
-    {
-        queue_dispose(queue);
-        return -1;
-    }
-
     if (unbuffered_chan_init(chan) != 0)
     {
         queue_dispose(queue);
-        reentrant_lock_dispose(lock);
         return -1;
     }
     
     chan->queue = queue;
-    chan->lock = lock;
     return 0;
 }
 
 static int unbuffered_chan_init(chan_t* chan)
 {
+    reentrant_lock_t* lock = reentrant_lock_init();
+    if (!lock)
+    {
+        return -1;
+    }
+    
     mutex_t* w_mu = mutex_init();
     if (!w_mu)
     {
         perror("Failed to initialize write mutex");
+        reentrant_lock_dispose(lock);
         return -1;
     }
 
@@ -105,6 +103,7 @@ static int unbuffered_chan_init(chan_t* chan)
     if (!r_mu)
     {
         perror("Failed to initialize read mutex");
+        reentrant_lock_dispose(lock);
         mutex_dispose(w_mu);
         return -1;
     }
@@ -113,6 +112,7 @@ static int unbuffered_chan_init(chan_t* chan)
     if (!mu)
     {
         perror("Failed to allocate monitor mutex");
+        reentrant_lock_dispose(lock);
         mutex_dispose(w_mu);
         mutex_dispose(r_mu);
         return -1;
@@ -122,6 +122,7 @@ static int unbuffered_chan_init(chan_t* chan)
     {
         perror("Failed to initialize monitor mutex");
         free(mu);
+        reentrant_lock_dispose(lock);
         mutex_dispose(w_mu);
         mutex_dispose(r_mu);
         return -1;
@@ -131,6 +132,7 @@ static int unbuffered_chan_init(chan_t* chan)
     if (!cond)
     {
         perror("Failed to allocate monitor condition");
+        reentrant_lock_dispose(lock);
         pthread_mutex_destroy(mu);
         mutex_dispose(w_mu);
         mutex_dispose(r_mu);
@@ -141,6 +143,7 @@ static int unbuffered_chan_init(chan_t* chan)
     {
         perror("Failed to initialize monitor condition");
         free(cond);
+        reentrant_lock_dispose(lock);
         pthread_mutex_destroy(mu);
         mutex_dispose(w_mu);
         mutex_dispose(r_mu);
@@ -151,17 +154,20 @@ static int unbuffered_chan_init(chan_t* chan)
     {
         perror("Failed to initialize read-write pipe");
         free(cond);
+        reentrant_lock_dispose(lock);
         pthread_mutex_destroy(mu);
         mutex_dispose(w_mu);
         mutex_dispose(r_mu);
         return -1;
     }
 
+    chan->lock = lock;
     chan->m_mu = mu;
     chan->m_cond = cond;
     chan->w_mu = w_mu;
     chan->r_mu = r_mu;
     chan->readers = 0;
+    chan->closed = 0;
     return 0;
 }
 
@@ -171,7 +177,6 @@ void chan_dispose(chan_t* chan)
     if (chan->buffered)
     {
         queue_dispose(chan->queue);
-        reentrant_lock_dispose(chan->lock);
     }
     else
     {
@@ -181,9 +186,44 @@ void chan_dispose(chan_t* chan)
         close(chan->rw_pipe[1]);
     }
 
+    reentrant_lock_dispose(chan->lock);
     pthread_mutex_destroy(chan->m_mu);
     pthread_cond_destroy(chan->m_cond);
     free(chan);
+}
+
+// Once a channel is closed, data cannot be sent into it. If the channel is
+// buffered, data can be read from it until it is empty, after which reads will
+// return an error code. Reading from a closed channel that is unbuffered will
+// return an error code. Closing a channel does not release its resources. This
+// must be done with a call to chan_dispose. Returns 0 if the channel was
+// successfully closed, -1 otherwise.
+int chan_close(chan_t* chan)
+{
+    int success = 0;
+    reentrant_lock(chan->lock);
+    int closed = chan->closed;
+    if (closed)
+    {
+        // Channel already closed.
+        success = 1;
+    }
+    else
+    {
+        // Otherwise close it.
+        chan->closed = 1;
+    }
+    reentrant_unlock(chan->lock);
+    return success;
+}
+
+// Returns 0 if the channel is open and 1 if it is closed.
+int chan_is_closed(chan_t* chan)
+{
+    reentrant_lock(chan->lock);
+    int closed = chan->closed;
+    reentrant_unlock(chan->lock);
+    return closed;
 }
 
 // Sends a value into the channel. If the channel is unbuffered, this will
@@ -192,6 +232,13 @@ void chan_dispose(chan_t* chan)
 // the send succeeded or -1 if it failed.
 int chan_send(chan_t* chan, void* data)
 {
+    if (chan_is_closed(chan))
+    {
+        // Cannot send on closed channel.
+        perror("Cannot send on closed channel");
+        return -1;
+    }
+
     if (chan->buffered)
     {
         return buffered_chan_send(chan, data);
@@ -251,8 +298,14 @@ static int buffered_chan_recv(chan_t* chan, void** data)
     reentrant_lock(chan->lock);
     while (chan->queue->size == 0)
     {
-        // Block until something is added.
         reentrant_unlock(chan->lock);
+        if (chan_is_closed(chan))
+        {
+            perror("Cannot read from closed and empty buffered channel");
+            return -1;
+        }
+
+        // Block until something is added.
         pthread_cond_wait(chan->m_cond, chan->m_mu);
         reentrant_lock(chan->lock);
     }
@@ -271,6 +324,12 @@ static int buffered_chan_recv(chan_t* chan, void** data)
 
 static int unbuffered_chan_recv(chan_t* chan, void** data)
 {
+    if (chan_is_closed(chan))
+    {
+        perror("Cannot read from closed unbuffered channel");
+        return -1;
+    }
+
     mutex_lock(chan->r_mu);
     chan->readers++;
     pthread_cond_signal(chan->m_cond);
