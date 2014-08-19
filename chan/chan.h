@@ -33,8 +33,8 @@ typedef struct chan_t
 
 // Allocates and returns a new channel. The capacity specifies whether the
 // channel should be buffered or not. A capacity of 0 will create an unbuffered
-// channel. Returns NULL if initialization failed or the capacity is less than
-// 0.
+// channel. Sets errno and returns NULL if initialization failed or the
+// capacity is less than 0.
 chan_t* chan_init(int capacity);
 
 // Releases the channel resources.

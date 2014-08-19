@@ -16,8 +16,8 @@ typedef struct
     int       count;
 } reentrant_lock_t;
 
-// Allocates and returns a new reentrant lock. Returns NULL if initialization
-// failed.
+// Allocates and returns a new reentrant lock. Sets errno and returns NULL if
+// initialization failed.
 reentrant_lock_t* reentrant_lock_init();
 
 // Releases the lock resources.

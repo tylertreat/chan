@@ -6,8 +6,8 @@
 // the semaphore value.
 typedef int pipe_sem_t[2];
 
-// Initializes a semaphore and sets its initial value. Returns NULL if
-// initialization failed.
+// Initializes a semaphore and sets its initial value. Initial value may not be
+// less than 0. Sets errno and returns NULL if initialization failed.
 pipe_sem_t* pipe_sem_init(int value);
 
 // Releases the semaphore resources.

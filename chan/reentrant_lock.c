@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE
 #endif
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -11,8 +12,8 @@
 #include "reentrant_lock.h"
 
 
-// Allocates and returns a new reentrant lock. Returns NULL if initialization
-// failed.
+// Allocates and returns a new reentrant lock. Sets errno and returns NULL if
+// initialization failed.
 reentrant_lock_t* reentrant_lock_init()
 {
     mutex_t* mu = mutex_init();
@@ -30,7 +31,7 @@ reentrant_lock_t* reentrant_lock_init()
     reentrant_lock_t* lock = (reentrant_lock_t*) malloc(sizeof(reentrant_lock_t));
     if (!lock)
     {
-        perror("Failed to allocate lock");
+        errno = ENOMEM;
         return NULL;
     }
 

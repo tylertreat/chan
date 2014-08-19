@@ -4,13 +4,15 @@
 #define _XOPEN_SOURCE
 #endif
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "mutex.h"
 #include "pipe_sem.h"
 
-// Allocates and returns a new mutex. Returns NULL if initialization failed.
+// Allocates and returns a new mutex. Sets errno and returns NULL if
+// initialization failed.
 mutex_t* mutex_init()
 {
     pipe_sem_t* sem = pipe_sem_init(1);
@@ -22,8 +24,9 @@ mutex_t* mutex_init()
     mutex_t* mu = (mutex_t*) malloc(sizeof(mutex_t));
     if (mu == NULL)
     {
-        perror("Failed to allocate mutex");
+        errno = ENOMEM;
         pipe_sem_dispose(sem);
+        return NULL;
     }
     
     mu->sem = sem;

@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE
 #endif
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -11,12 +12,13 @@
 #include "pipe_sem.h"
 
 
-// Initializes a semaphore and sets its initial value.
+// Initializes a semaphore and sets its initial value. Initial value may not be
+// less than 0. Sets errno and returns NULL if initialization failed.
 pipe_sem_t* pipe_sem_init(int value)
 {
     if (value < 0)
     {
-        perror("Semaphore value must be greater than or equal to 0");
+        errno = EINVAL;
         return NULL;
     }
 
@@ -24,14 +26,13 @@ pipe_sem_t* pipe_sem_init(int value)
     pipe_sem_t* sem = (pipe_sem_t*) malloc(sizeof(pipe_sem_t));
     if (!sem)
     {
-        perror("Failed to allocate semaphore");
+        errno = ENOMEM;
         return NULL;
     }
     
     // Initialize the pipe.
     if (pipe(*sem) != 0)
     {
-        perror("Failed to initialize semaphore");
         free(sem);
         return NULL;
     }

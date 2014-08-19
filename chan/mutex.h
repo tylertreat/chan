@@ -10,7 +10,8 @@ typedef struct
     pipe_sem_t* sem;
 } mutex_t;
 
-// Allocates and returns a new mutex. Returns NULL if initialization failed.
+// Allocates and returns a new mutex. Sets errno and returns NULL if
+// initialization failed.
 mutex_t* mutex_init();
 
 // Releases the mutex resources.

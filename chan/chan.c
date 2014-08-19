@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE
 #endif
 
+#include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -26,20 +27,20 @@ static int unbuffered_chan_recv(chan_t* chan, void** data);
 
 // Allocates and returns a new channel. The capacity specifies whether the
 // channel should be buffered or not. A capacity of 0 will create an unbuffered
-// channel. Returns NULL if initialization failed or the capacity is less than
-// 0.
+// channel. Sets errno and returns NULL if initialization failed or the
+// capacity is less than 0.
 chan_t* chan_init(int capacity)
 {
     if (capacity < 0)
     {
-        perror("Capacity cannot be less than 0");
+        errno = EINVAL;
         return NULL;
     }
 
     chan_t* chan = (chan_t*) malloc(sizeof(chan_t));
     if (!chan)
     {
-        perror("Failed to allocate channel");
+        errno = ENOMEM;
         return NULL;
     }
 
@@ -94,7 +95,6 @@ static int unbuffered_chan_init(chan_t* chan)
     mutex_t* w_mu = mutex_init();
     if (!w_mu)
     {
-        perror("Failed to initialize write mutex");
         reentrant_lock_dispose(lock);
         return -1;
     }
@@ -102,7 +102,6 @@ static int unbuffered_chan_init(chan_t* chan)
     mutex_t* r_mu = mutex_init();
     if (!r_mu)
     {
-        perror("Failed to initialize read mutex");
         reentrant_lock_dispose(lock);
         mutex_dispose(w_mu);
         return -1;
@@ -111,7 +110,7 @@ static int unbuffered_chan_init(chan_t* chan)
     pthread_mutex_t* mu = (pthread_mutex_t*) malloc(sizeof(pthread_mutex_t));
     if (!mu)
     {
-        perror("Failed to allocate monitor mutex");
+        errno = ENOMEM;
         reentrant_lock_dispose(lock);
         mutex_dispose(w_mu);
         mutex_dispose(r_mu);
@@ -120,7 +119,6 @@ static int unbuffered_chan_init(chan_t* chan)
 
     if (pthread_mutex_init(mu, NULL) != 0)
     {
-        perror("Failed to initialize monitor mutex");
         free(mu);
         reentrant_lock_dispose(lock);
         mutex_dispose(w_mu);
@@ -131,7 +129,7 @@ static int unbuffered_chan_init(chan_t* chan)
     pthread_cond_t* cond = (pthread_cond_t*) malloc(sizeof(pthread_cond_t));
     if (!cond)
     {
-        perror("Failed to allocate monitor condition");
+        errno = ENOMEM;
         reentrant_lock_dispose(lock);
         pthread_mutex_destroy(mu);
         mutex_dispose(w_mu);
@@ -141,7 +139,6 @@ static int unbuffered_chan_init(chan_t* chan)
 
     if (pthread_cond_init(cond, NULL) != 0)
     {
-        perror("Failed to initialize monitor condition");
         free(cond);
         reentrant_lock_dispose(lock);
         pthread_mutex_destroy(mu);
@@ -152,7 +149,6 @@ static int unbuffered_chan_init(chan_t* chan)
 
     if (pipe(chan->rw_pipe) != 0)
     {
-        perror("Failed to initialize read-write pipe");
         free(cond);
         reentrant_lock_dispose(lock);
         pthread_mutex_destroy(mu);
@@ -235,7 +231,7 @@ int chan_send(chan_t* chan, void* data)
     if (chan_is_closed(chan))
     {
         // Cannot send on closed channel.
-        perror("Cannot send on closed channel");
+        errno = EPIPE;
         return -1;
     }
 
@@ -301,7 +297,6 @@ static int buffered_chan_recv(chan_t* chan, void** data)
         reentrant_unlock(chan->lock);
         if (chan_is_closed(chan))
         {
-            perror("Cannot read from closed and empty buffered channel");
             return -1;
         }
 
@@ -326,7 +321,6 @@ static int unbuffered_chan_recv(chan_t* chan, void** data)
 {
     if (chan_is_closed(chan))
     {
-        perror("Cannot read from closed unbuffered channel");
         return -1;
     }
 
@@ -338,6 +332,7 @@ static int unbuffered_chan_recv(chan_t* chan, void** data)
     void* msg_ptr = malloc(sizeof(void*));
     if (!msg_ptr)
     {
+        errno = ENOMEM;
         success = -1;
     }
     else
