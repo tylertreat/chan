@@ -2,8 +2,8 @@
 #define chan_h
 
 #include "queue.h"
-#include "sync/mutex.h"
-#include "sync/reentrant_lock.h"
+#include "mutex.h"
+#include "reentrant_lock.h"
 
 
 // Defines a thread-safe communication pipe. Channels are either buffered or

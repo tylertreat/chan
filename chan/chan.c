@@ -12,8 +12,8 @@
 
 #include "chan.h"
 #include "queue.h"
-#include "sync/pipe_sem.h"
-#include "sync/reentrant_lock.h"
+#include "pipe_sem.h"
+#include "reentrant_lock.h"
 
 
 static int buffered_chan_init(chan_t* chan, int capacity);
