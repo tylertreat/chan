@@ -208,6 +208,7 @@ int chan_close(chan_t* chan)
     {
         // Otherwise close it.
         chan->closed = 1;
+        pthread_cond_signal(chan->m_cond);
     }
     reentrant_unlock(chan->lock);
     return success;
