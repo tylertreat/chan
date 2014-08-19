@@ -193,16 +193,16 @@ void chan_dispose(chan_t* chan)
 // return an error code. Reading from a closed channel that is unbuffered will
 // return an error code. Closing a channel does not release its resources. This
 // must be done with a call to chan_dispose. Returns 0 if the channel was
-// successfully closed, -1 otherwise.
+// successfully closed, -1 otherwise. If -1 is returned, errno will be set.
 int chan_close(chan_t* chan)
 {
     int success = 0;
     reentrant_lock(chan->lock);
-    int closed = chan->closed;
-    if (closed)
+    if (chan->closed)
     {
         // Channel already closed.
-        success = 1;
+        success = -1;
+        errno = EPIPE;
     }
     else
     {
@@ -225,7 +225,7 @@ int chan_is_closed(chan_t* chan)
 // Sends a value into the channel. If the channel is unbuffered, this will
 // block until a receiver receives the value. If the channel is buffered and at
 // capacity, this will block until a receiver receives a value. Returns 0 if
-// the send succeeded or -1 if it failed.
+// the send succeeded or -1 if it failed. If -1 is returned, errno will be set.
 int chan_send(chan_t* chan, void* data)
 {
     if (chan_is_closed(chan))
@@ -274,14 +274,19 @@ static int unbuffered_chan_send(chan_t* chan, void* data)
         pthread_cond_wait(chan->m_cond, chan->m_mu);
     }
 
-    write(chan->rw_pipe[1], &data, sizeof(void*));
+    int success = 0;
+    if (write(chan->rw_pipe[1], &data, sizeof(void*)) == -1)
+    {
+        success = -1;
+    }
 
     mutex_unlock(chan->w_mu);
-    return 0;
+    return success;
 }
 
 // Receives a value from the channel. This will block until there is data to
-// receive. Returns 0 if the receive succeeded or -1 if it failed.
+// receive. Returns 0 if the receive succeeded or -1 if it failed. If -1 is
+// returned, errno will be set.
 int chan_recv(chan_t* chan, void** data)
 {
     return chan->buffered ?
@@ -297,6 +302,7 @@ static int buffered_chan_recv(chan_t* chan, void** data)
         reentrant_unlock(chan->lock);
         if (chan_is_closed(chan))
         {
+            errno = EPIPE;
             return -1;
         }
 
@@ -321,6 +327,7 @@ static int unbuffered_chan_recv(chan_t* chan, void** data)
 {
     if (chan_is_closed(chan))
     {
+        errno = EPIPE;
         return -1;
     }
 
