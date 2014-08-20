@@ -13,8 +13,6 @@
 
 #include "chan.h"
 #include "queue.h"
-#include "pipe_sem.h"
-#include "reentrant_lock.h"
 
 
 static int buffered_chan_init(chan_t* chan, int capacity);
@@ -86,24 +84,30 @@ static int buffered_chan_init(chan_t* chan, int capacity)
 
 static int unbuffered_chan_init(chan_t* chan)
 {
-    reentrant_lock_t* lock = reentrant_lock_init();
-    if (!lock)
-    {
-        return -1;
-    }
-    
-    mutex_t* w_mu = mutex_init();
+    pthread_mutex_t* w_mu = (pthread_mutex_t*) malloc(sizeof(pthread_mutex_t));
     if (!w_mu)
     {
-        reentrant_lock_dispose(lock);
+        errno = ENOMEM;
         return -1;
     }
 
-    mutex_t* r_mu = mutex_init();
+    if (pthread_mutex_init(w_mu, NULL) != 0)
+    {
+        free(w_mu);
+    }
+
+    pthread_mutex_t* r_mu = (pthread_mutex_t*) malloc(sizeof(pthread_mutex_t));
     if (!r_mu)
     {
-        reentrant_lock_dispose(lock);
-        mutex_dispose(w_mu);
+        errno = ENOMEM;
+        pthread_mutex_destroy(w_mu);
+        return -1;
+    }
+
+    if (pthread_mutex_init(r_mu, NULL) != 0)
+    {
+        free(r_mu);
+        pthread_mutex_destroy(w_mu);
         return -1;
     }
 
@@ -111,18 +115,16 @@ static int unbuffered_chan_init(chan_t* chan)
     if (!mu)
     {
         errno = ENOMEM;
-        reentrant_lock_dispose(lock);
-        mutex_dispose(w_mu);
-        mutex_dispose(r_mu);
+        pthread_mutex_destroy(w_mu);
+        pthread_mutex_destroy(r_mu);
         return -1;
     }
 
     if (pthread_mutex_init(mu, NULL) != 0)
     {
         free(mu);
-        reentrant_lock_dispose(lock);
-        mutex_dispose(w_mu);
-        mutex_dispose(r_mu);
+        pthread_mutex_destroy(w_mu);
+        pthread_mutex_destroy(r_mu);
         return -1;
     }
 
@@ -130,34 +132,30 @@ static int unbuffered_chan_init(chan_t* chan)
     if (!cond)
     {
         errno = ENOMEM;
-        reentrant_lock_dispose(lock);
         pthread_mutex_destroy(mu);
-        mutex_dispose(w_mu);
-        mutex_dispose(r_mu);
+        pthread_mutex_destroy(w_mu);
+        pthread_mutex_destroy(r_mu);
         return -1;
     }
 
     if (pthread_cond_init(cond, NULL) != 0)
     {
         free(cond);
-        reentrant_lock_dispose(lock);
         pthread_mutex_destroy(mu);
-        mutex_dispose(w_mu);
-        mutex_dispose(r_mu);
+        pthread_mutex_destroy(w_mu);
+        pthread_mutex_destroy(r_mu);
         return -1;
     }
 
     if (pipe(chan->rw_pipe) != 0)
     {
         free(cond);
-        reentrant_lock_dispose(lock);
         pthread_mutex_destroy(mu);
-        mutex_dispose(w_mu);
-        mutex_dispose(r_mu);
+        pthread_mutex_destroy(w_mu);
+        pthread_mutex_destroy(r_mu);
         return -1;
     }
 
-    chan->lock = lock;
     chan->m_mu = mu;
     chan->m_cond = cond;
     chan->w_mu = w_mu;
@@ -176,13 +174,12 @@ void chan_dispose(chan_t* chan)
     }
     else
     {
-        mutex_dispose(chan->w_mu);
-        mutex_dispose(chan->r_mu);
+        pthread_mutex_destroy(chan->w_mu);
+        pthread_mutex_destroy(chan->r_mu);
         close(chan->rw_pipe[0]);
         close(chan->rw_pipe[1]);
     }
 
-    reentrant_lock_dispose(chan->lock);
     pthread_mutex_destroy(chan->m_mu);
     pthread_cond_destroy(chan->m_cond);
     free(chan);
@@ -197,7 +194,7 @@ void chan_dispose(chan_t* chan)
 int chan_close(chan_t* chan)
 {
     int success = 0;
-    reentrant_lock(chan->lock);
+    pthread_mutex_lock(chan->m_mu);
     if (chan->closed)
     {
         // Channel already closed.
@@ -208,18 +205,18 @@ int chan_close(chan_t* chan)
     {
         // Otherwise close it.
         chan->closed = 1;
-        pthread_cond_signal(chan->m_cond);
+        pthread_cond_broadcast(chan->m_cond);
     }
-    reentrant_unlock(chan->lock);
+    pthread_mutex_unlock(chan->m_mu);
     return success;
 }
 
 // Returns 0 if the channel is open and 1 if it is closed.
 int chan_is_closed(chan_t* chan)
 {
-    reentrant_lock(chan->lock);
+    pthread_mutex_lock(chan->m_mu);
     int closed = chan->closed;
-    reentrant_unlock(chan->lock);
+    pthread_mutex_unlock(chan->m_mu);
     return closed;
 }
 
@@ -245,13 +242,13 @@ int chan_send(chan_t* chan, void* data)
 
 static int buffered_chan_send(chan_t* chan, void* data)
 {
-    reentrant_lock(chan->lock);
+    pthread_mutex_lock(chan->m_mu);
     while (chan->queue->size == chan->queue->capacity)
     {
         // Block until something is removed.
-        reentrant_unlock(chan->lock);
+        pthread_mutex_unlock(chan->m_mu);
         pthread_cond_wait(chan->m_cond, chan->m_mu);
-        reentrant_lock(chan->lock);
+        pthread_mutex_lock(chan->m_mu);
     }
 
     int success = queue_add(&chan->queue, data);
@@ -259,16 +256,16 @@ static int buffered_chan_send(chan_t* chan, void* data)
     if (chan->queue->size == 1)
     {
         // If the buffer was previously empty, notify.
-        pthread_cond_signal(chan->m_cond);
+        pthread_cond_broadcast(chan->m_cond);
     }
 
-    reentrant_unlock(chan->lock);
+    pthread_mutex_unlock(chan->m_mu);
     return success;
 }
 
 static int unbuffered_chan_send(chan_t* chan, void* data)
 {
-    mutex_lock(chan->w_mu);
+    pthread_mutex_lock(chan->w_mu);
     while (chan->readers == 0)
     {
         // Block until there is a reader.
@@ -281,7 +278,7 @@ static int unbuffered_chan_send(chan_t* chan, void* data)
         success = -1;
     }
 
-    mutex_unlock(chan->w_mu);
+    pthread_mutex_unlock(chan->w_mu);
     return success;
 }
 
@@ -297,11 +294,11 @@ int chan_recv(chan_t* chan, void** data)
 
 static int buffered_chan_recv(chan_t* chan, void** data)
 {
-    reentrant_lock(chan->lock);
+    pthread_mutex_lock(chan->m_mu);
     while (chan->queue->size == 0)
     {
-        reentrant_unlock(chan->lock);
-        if (chan_is_closed(chan))
+        pthread_mutex_unlock(chan->m_mu);
+        if (chan->closed)
         {
             errno = EPIPE;
             return -1;
@@ -309,7 +306,7 @@ static int buffered_chan_recv(chan_t* chan, void** data)
 
         // Block until something is added.
         pthread_cond_wait(chan->m_cond, chan->m_mu);
-        reentrant_lock(chan->lock);
+        pthread_mutex_lock(chan->m_mu);
     }
 
     *data = queue_remove(&chan->queue);
@@ -317,10 +314,10 @@ static int buffered_chan_recv(chan_t* chan, void** data)
     if (chan->queue->size == chan->queue->capacity - 1)
     {
         // If the buffer was previously full, notify.
-        pthread_cond_signal(chan->m_cond);
+        pthread_cond_broadcast(chan->m_cond);
     }
 
-    reentrant_unlock(chan->lock);
+    pthread_mutex_unlock(chan->m_mu);
     return 0;
 }
 
@@ -332,9 +329,9 @@ static int unbuffered_chan_recv(chan_t* chan, void** data)
         return -1;
     }
 
-    mutex_lock(chan->r_mu);
+    pthread_mutex_lock(chan->r_mu);
     chan->readers++;
-    pthread_cond_signal(chan->m_cond);
+    pthread_cond_broadcast(chan->m_cond);
 
     int success = 0;
     void* msg_ptr = malloc(sizeof(void*));
@@ -350,7 +347,7 @@ static int unbuffered_chan_recv(chan_t* chan, void** data)
     }
 
     chan->readers--;
-    mutex_unlock(chan->r_mu);
+    pthread_mutex_unlock(chan->r_mu);
     return success;
 }
 
@@ -361,9 +358,9 @@ int chan_size(chan_t* chan)
     int size = 0;
     if (chan->buffered)
     {
-        reentrant_lock(chan->lock);
+        pthread_mutex_lock(chan->m_mu);
         size = chan->queue->size;
-        reentrant_unlock(chan->lock);
+        pthread_mutex_unlock(chan->m_mu);
     }
     return size;
 }

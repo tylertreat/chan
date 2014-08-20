@@ -2,8 +2,6 @@
 #define chan_h
 
 #include "queue.h"
-#include "mutex.h"
-#include "reentrant_lock.h"
 
 
 // Defines a thread-safe communication pipe. Channels are either buffered or
@@ -15,20 +13,19 @@
 typedef struct chan_t
 {
     // Buffered channel properties
-    queue_t*          queue;
+    queue_t*         queue;
     
     // Unbuffered channel properties
-    mutex_t*          r_mu;
-    mutex_t*          w_mu;
-    int               rw_pipe[2];
-    int               readers;
+    pthread_mutex_t* r_mu;
+    pthread_mutex_t* w_mu;
+    int              rw_pipe[2];
+    int              readers;
 
     // Shared properties
-    reentrant_lock_t* lock;
-    pthread_mutex_t*  m_mu;
-    pthread_cond_t*   m_cond;
-    int               buffered;
-    int               closed;
+    pthread_mutex_t* m_mu;
+    pthread_cond_t*  m_cond;
+    int              buffered;
+    int              closed;
 } chan_t;
 
 // Allocates and returns a new channel. The capacity specifies whether the
