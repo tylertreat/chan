@@ -278,6 +278,7 @@ static int buffered_chan_recv(chan_t* chan, void** data)
     {
         if (chan->closed)
         {
+            pthread_mutex_unlock(chan->m_mu);
             errno = EPIPE;
             return -1;
         }
