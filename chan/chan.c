@@ -205,7 +205,7 @@ int chan_close(chan_t* chan)
     {
         // Otherwise close it.
         chan->closed = 1;
-        pthread_cond_broadcast(chan->m_cond);
+        pthread_cond_signal(chan->m_cond);
     }
     pthread_mutex_unlock(chan->m_mu);
     return success;
@@ -240,15 +240,23 @@ int chan_send(chan_t* chan, void* data)
     return unbuffered_chan_send(chan, data);
 }
 
+// Receives a value from the channel. This will block until there is data to
+// receive. Returns 0 if the receive succeeded or -1 if it failed. If -1 is
+// returned, errno will be set.
+int chan_recv(chan_t* chan, void** data)
+{
+    return chan->buffered ?
+        buffered_chan_recv(chan, data) :
+        unbuffered_chan_recv(chan, data);
+}
+
 static int buffered_chan_send(chan_t* chan, void* data)
 {
     pthread_mutex_lock(chan->m_mu);
     while (chan->queue->size == chan->queue->capacity)
     {
         // Block until something is removed.
-        pthread_mutex_unlock(chan->m_mu);
         pthread_cond_wait(chan->m_cond, chan->m_mu);
-        pthread_mutex_lock(chan->m_mu);
     }
 
     int success = queue_add(&chan->queue, data);
@@ -256,16 +264,45 @@ static int buffered_chan_send(chan_t* chan, void* data)
     if (chan->queue->size == 1)
     {
         // If the buffer was previously empty, notify.
-        pthread_cond_broadcast(chan->m_cond);
+        pthread_cond_signal(chan->m_cond);
     }
 
     pthread_mutex_unlock(chan->m_mu);
     return success;
 }
 
+static int buffered_chan_recv(chan_t* chan, void** data)
+{
+    pthread_mutex_lock(chan->m_mu);
+    while (chan->queue->size == 0)
+    {
+        if (chan->closed)
+        {
+            errno = EPIPE;
+            return -1;
+        }
+
+        // Block until something is added.
+        pthread_cond_wait(chan->m_cond, chan->m_mu);
+    }
+
+    *data = queue_remove(&chan->queue);
+
+    if (chan->queue->size == chan->queue->capacity - 1)
+    {
+        // If the buffer was previously full, notify.
+        pthread_cond_signal(chan->m_cond);
+    }
+
+    pthread_mutex_unlock(chan->m_mu);
+    return 0;
+}
+
 static int unbuffered_chan_send(chan_t* chan, void* data)
 {
+    // TODO: Try to implement with less locking.
     pthread_mutex_lock(chan->w_mu);
+    pthread_mutex_lock(chan->m_mu);
     while (chan->readers == 0)
     {
         // Block until there is a reader.
@@ -278,47 +315,9 @@ static int unbuffered_chan_send(chan_t* chan, void* data)
         success = -1;
     }
 
+    pthread_mutex_unlock(chan->m_mu);
     pthread_mutex_unlock(chan->w_mu);
     return success;
-}
-
-// Receives a value from the channel. This will block until there is data to
-// receive. Returns 0 if the receive succeeded or -1 if it failed. If -1 is
-// returned, errno will be set.
-int chan_recv(chan_t* chan, void** data)
-{
-    return chan->buffered ?
-        buffered_chan_recv(chan, data) :
-        unbuffered_chan_recv(chan, data);
-}
-
-static int buffered_chan_recv(chan_t* chan, void** data)
-{
-    pthread_mutex_lock(chan->m_mu);
-    while (chan->queue->size == 0)
-    {
-        pthread_mutex_unlock(chan->m_mu);
-        if (chan->closed)
-        {
-            errno = EPIPE;
-            return -1;
-        }
-
-        // Block until something is added.
-        pthread_cond_wait(chan->m_cond, chan->m_mu);
-        pthread_mutex_lock(chan->m_mu);
-    }
-
-    *data = queue_remove(&chan->queue);
-
-    if (chan->queue->size == chan->queue->capacity - 1)
-    {
-        // If the buffer was previously full, notify.
-        pthread_cond_broadcast(chan->m_cond);
-    }
-
-    pthread_mutex_unlock(chan->m_mu);
-    return 0;
 }
 
 static int unbuffered_chan_recv(chan_t* chan, void** data)
@@ -330,8 +329,10 @@ static int unbuffered_chan_recv(chan_t* chan, void** data)
     }
 
     pthread_mutex_lock(chan->r_mu);
+    pthread_mutex_lock(chan->m_mu);
     chan->readers++;
-    pthread_cond_broadcast(chan->m_cond);
+    pthread_cond_signal(chan->m_cond);
+    pthread_mutex_unlock(chan->m_mu);
 
     int success = 0;
     void* msg_ptr = malloc(sizeof(void*));
@@ -346,7 +347,9 @@ static int unbuffered_chan_recv(chan_t* chan, void** data)
         *data = (void*) *(long*) msg_ptr;
     }
 
+    pthread_mutex_lock(chan->m_mu);
     chan->readers--;
+    pthread_mutex_unlock(chan->m_mu);
     pthread_mutex_unlock(chan->r_mu);
     return success;
 }
