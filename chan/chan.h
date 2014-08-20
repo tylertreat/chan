@@ -1,6 +1,7 @@
 #ifndef chan_h
 #define chan_h
 
+#include <pthread.h>
 #include "queue.h"
 
 
