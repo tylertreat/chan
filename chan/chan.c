@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "blocking_pipe.h"
 #include "chan.h"
 #include "queue.h"
 
@@ -147,7 +148,8 @@ static int unbuffered_chan_init(chan_t* chan)
         return -1;
     }
 
-    if (pipe(chan->rw_pipe) != 0)
+    blocking_pipe_t* pipe = blocking_pipe_init();
+    if (pipe == NULL)
     {
         free(cond);
         pthread_mutex_destroy(mu);
@@ -162,6 +164,7 @@ static int unbuffered_chan_init(chan_t* chan)
     chan->r_mu = r_mu;
     chan->readers = 0;
     chan->closed = 0;
+    chan->pipe = pipe;
     return 0;
 }
 
@@ -176,8 +179,7 @@ void chan_dispose(chan_t* chan)
     {
         pthread_mutex_destroy(chan->w_mu);
         pthread_mutex_destroy(chan->r_mu);
-        close(chan->rw_pipe[0]);
-        close(chan->rw_pipe[1]);
+        blocking_pipe_dispose(chan->pipe);
     }
 
     pthread_mutex_destroy(chan->m_mu);
@@ -208,8 +210,8 @@ int chan_close(chan_t* chan)
         if (!chan->buffered)
         {
             // Closing pipe will unblock any potential waiting reader.
-            close(chan->rw_pipe[0]);
-            close(chan->rw_pipe[1]);
+            close(chan->pipe->rw_pipe[0]);
+            close(chan->pipe->rw_pipe[1]);
         }
         pthread_cond_signal(chan->m_cond);
     }
@@ -307,60 +309,23 @@ static int buffered_chan_recv(chan_t* chan, void** data)
 
 static int unbuffered_chan_send(chan_t* chan, void* data)
 {
-    // TODO: Try to implement with less locking.
     pthread_mutex_lock(chan->w_mu);
-    pthread_mutex_lock(chan->m_mu);
-    while (chan->readers == 0)
-    {
-        // Block until there is a reader.
-        pthread_cond_wait(chan->m_cond, chan->m_mu);
-    }
-
-    int success = 0;
-    if (write(chan->rw_pipe[1], &data, sizeof(void*)) == -1)
-    {
-        success = -1;
-    }
-
-    pthread_mutex_unlock(chan->m_mu);
+    int success = blocking_pipe_write(chan->pipe, data);
     pthread_mutex_unlock(chan->w_mu);
     return success;
 }
 
 static int unbuffered_chan_recv(chan_t* chan, void** data)
 {
+    pthread_mutex_lock(chan->r_mu);
     if (chan_is_closed(chan))
     {
         errno = EPIPE;
         return -1;
     }
 
-    // TODO: Try to implement with less locking.
-    pthread_mutex_lock(chan->r_mu);
-    pthread_mutex_lock(chan->m_mu);
-    chan->readers++;
-    pthread_cond_signal(chan->m_cond);
-    pthread_mutex_unlock(chan->m_mu);
+    int success = blocking_pipe_read(chan->pipe, data);
 
-    int success = 0;
-    void* msg_ptr = malloc(sizeof(void*));
-    if (!msg_ptr)
-    {
-        errno = ENOMEM;
-        success = -1;
-    }
-    else if (read(chan->rw_pipe[0], msg_ptr, sizeof(void*)) > 0)
-    {
-        *data = (void*) *(long*) msg_ptr;
-    }
-    else
-    {
-        success = -1;
-    }
-
-    pthread_mutex_lock(chan->m_mu);
-    chan->readers--;
-    pthread_mutex_unlock(chan->m_mu);
     pthread_mutex_unlock(chan->r_mu);
     return success;
 }
