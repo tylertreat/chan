@@ -1,6 +1,6 @@
 #include <pthread.h>
 #include <stdio.h>
-#include "../chan/chan.h"
+#include "../src/chan.h"
 
 chan_t* chan;
 

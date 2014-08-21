@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "../chan/chan.h"
+#include "../src/chan.h"
 
 int main()
 {

@@ -2,7 +2,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
-#include "../chan/chan.h"
+#include "../src/chan.h"
 
 chan_t* jobs;
 chan_t* done;
