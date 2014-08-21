@@ -1,0 +1,37 @@
+#ifndef countdown_latch_h
+#define countdown_latch_h
+
+#include <pthread.h>
+
+
+// Defines a countdown latch that allows one or more threads to wait until a
+// set of operations complete. The initial value specifies how many times the
+// latch must be counted down before calls to await proceed.
+typedef struct countdown_latch_t
+{
+    int              initial_count;
+    int              count;
+    int              reset;
+    int              waiting;
+    pthread_mutex_t* mu;
+    pthread_cond_t*  cond;
+} countdown_latch_t;
+
+// Initializes a countdown latch and sets its initial value. The reset argument
+// specifies if the latch should be reset to its initial state when it reaches
+// 0 or not. A a non-zero reset value will enable resets while 0 will not. Sets
+// errno and returns NULL if initialization failed. 
+countdown_latch_t* countdown_latch_init(int count, int reset);
+
+// Releases the countdown latch resources.
+void countdown_latch_dispose(countdown_latch_t* latch);
+
+// Blocks until the countdown latch reaches 0.
+void countdown_latch_await(countdown_latch_t* latch);
+
+// Decrements the countdown latch count, releasing all waiting threads if it
+// reaches 0. If resetting is enabled, the count will reset to its original
+// value when it reaches 0.
+void countdown_latch_count_down(countdown_latch_t* latch);
+
+#endif
