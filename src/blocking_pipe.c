@@ -81,11 +81,24 @@ int blocking_pipe_read(blocking_pipe_t* pipe, void** data)
 {
     pthread_mutex_lock(pipe->mu);
     pipe->reader = 1;
+    int success = 0;
+
     void* msg_ptr = malloc(sizeof(void*));
+    if (!msg_ptr)
+    {
+        errno = ENOMEM;
+        success = -1;
+    }
+
     pthread_cond_signal(pipe->cond);
     pthread_mutex_unlock(pipe->mu);
-    int success = read(pipe->rw_pipe[0], msg_ptr, sizeof(void*)) > 0 ? 0 : -1;
-    *data = (void*) *(long*) msg_ptr;
+
+    if (success == 0)
+    {
+        success = read(pipe->rw_pipe[0], msg_ptr, sizeof(void*)) > 0 ? 0 : -1;
+        *data = (void*) *(long*) msg_ptr;
+    }
+
     return success;
 }
 
