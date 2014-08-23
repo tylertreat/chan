@@ -42,8 +42,7 @@ int main()
     printf("sent all jobs\n");
 
     // Wait for all jobs to be received.
-    void* d;
-    chan_recv(done, &d);
+    chan_recv(done, NULL);
 
     // Clean up channels.
     chan_dispose(jobs);

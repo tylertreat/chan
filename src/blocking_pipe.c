@@ -96,7 +96,14 @@ int blocking_pipe_read(blocking_pipe_t* pipe, void** data)
     if (success == 0)
     {
         success = read(pipe->rw_pipe[0], msg_ptr, sizeof(void*)) > 0 ? 0 : -1;
-        *data = (void*) *(long*) msg_ptr;
+        if (!data)
+        {
+            free(msg_ptr);
+        }
+        else
+        {
+            *data = (void*) *(long*) msg_ptr;
+        }
     }
 
     return success;
