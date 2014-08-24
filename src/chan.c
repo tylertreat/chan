@@ -11,6 +11,14 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <time.h>
+#include <sys/time.h>
+
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 #include "blocking_pipe.h"
 #include "chan.h"
 #include "queue.h"
@@ -23,6 +31,22 @@ static int buffered_chan_recv(chan_t* chan, void** data);
 static int unbuffered_chan_init(chan_t* chan);
 static int unbuffered_chan_send(chan_t* chan, void* data);
 static int unbuffered_chan_recv(chan_t* chan, void** data);
+
+static int chan_can_recv(chan_t* chan);
+
+void current_utc_time(struct timespec *ts) {
+#ifdef __MACH__ 
+    clock_serv_t cclock;
+    mach_timespec_t mts;
+    host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+    clock_get_time(cclock, &mts);
+    mach_port_deallocate(mach_task_self(), cclock);
+    ts->tv_sec = mts.tv_sec;
+    ts->tv_nsec = mts.tv_nsec;
+#else
+    clock_gettime(CLOCK_REALTIME, ts);
+#endif
+}
 
 // Allocates and returns a new channel. The capacity specifies whether the
 // channel should be buffered or not. A capacity of 0 will create an unbuffered
@@ -343,3 +367,52 @@ int chan_size(chan_t* chan)
     }
     return size;
 }
+
+
+int chan_select(chan_t* recv_channels[], int recv_count, void** recv_out)
+{
+    int candidates[recv_count];
+    int count = 0;
+    int i;
+
+    for (i = 0; i < recv_count; i++)
+    {
+        chan_t* chan = recv_channels[i];
+        if (chan_can_recv(chan))
+        {
+            candidates[count++] = i;
+        }
+    }
+    
+    if (count == 0)
+    {
+        return -1;
+    }
+
+    // Seed rand using current time in nanoseconds.
+    struct timespec ts;
+    current_utc_time(&ts);
+    srand(ts.tv_nsec);
+
+    int select_idx = candidates[rand() % count];
+    if (chan_recv(recv_channels[select_idx], recv_out) != 0)
+    {
+        return -1;
+    }
+
+    return select_idx;
+}
+
+static int chan_can_recv(chan_t* chan)
+{
+    if (chan->buffered)
+    {
+        return chan_size(chan) > 0 ? 1 : 0;
+    }
+
+    pthread_mutex_lock(chan->pipe->mu);
+    int sender = chan->pipe->sender;
+    pthread_mutex_unlock(chan->pipe->mu);
+    return sender > 0 ? 1 : 0;
+}
+

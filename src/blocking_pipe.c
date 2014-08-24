@@ -60,6 +60,7 @@ blocking_pipe_t* blocking_pipe_init()
     }
 
     p->reader = 0;
+    p->sender = 0;
     p->mu = mu;
     p->cond = cond;
     return p;
@@ -114,11 +115,13 @@ int blocking_pipe_read(blocking_pipe_t* pipe, void** data)
 int blocking_pipe_write(blocking_pipe_t* pipe, void* data)
 {
     pthread_mutex_lock(pipe->mu);
+    pipe->sender = 1;
     while (pipe->reader == 0)
     {
         pthread_cond_wait(pipe->cond, pipe->mu);
     }
     pipe->reader = 0;
+    pipe->sender = 0;
     int success = write(pipe->rw_pipe[1], &data, sizeof(void*)) > 0 ? 0 : -1;
     pthread_mutex_unlock(pipe->mu);
     return success;

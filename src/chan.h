@@ -65,4 +65,6 @@ int chan_recv(chan_t* chan, void** data);
 // unbuffered, this will return 0.
 int chan_size(chan_t* chan);
 
+int chan_select(chan_t* recv_channels[], int recv_count, void** recv_out);
+
 #endif
