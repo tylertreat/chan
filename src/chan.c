@@ -430,6 +430,7 @@ int chan_select(chan_t* recv_chans[], int recv_count, void** recv_out,
     current_utc_time(&ts);
     srand(ts.tv_nsec);
 
+    // Select candidate and perform operation.
     select_op_t select = candidates[rand() % count];
     if (select.recv && chan_recv(select.chan, recv_out) != 0)
     {
