@@ -1,5 +1,4 @@
 #include <pthread.h>
-#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include "../src/chan.h"
