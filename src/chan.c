@@ -33,6 +33,7 @@ static int unbuffered_chan_send(chan_t* chan, void* data);
 static int unbuffered_chan_recv(chan_t* chan, void** data);
 
 static int chan_can_recv(chan_t* chan);
+static int chan_can_send(chan_t* chan);
 
 void current_utc_time(struct timespec *ts) {
 #ifdef __MACH__ 
@@ -368,19 +369,54 @@ int chan_size(chan_t* chan)
     return size;
 }
 
-
-int chan_select(chan_t* recv_channels[], int recv_count, void** recv_out)
+typedef struct
 {
-    int candidates[recv_count];
+    int     recv;
+    chan_t* chan;
+    void*   msg_in;
+    int     index;
+} select_op_t;
+
+// A select statement chooses which of a set of possible send or receive
+// operations will proceed. The return value indicates which channel's
+// operation has proceeded. If more than one operation can proceed, one is
+// selected randomly. If none can proceed, -1 is returned. Select is intended
+// to be used in conjunction with a switch statement. In the case of a receive
+// operation, the received value will be pointed to by the provided pointer. In
+// the case of a send, the value at the same index as the channel will be sent.
+int chan_select(chan_t* recv_chans[], int recv_count, void** recv_out,
+    chan_t* send_chans[], int send_count, void* send_msgs[])
+{
+    select_op_t candidates[recv_count + send_count];
     int count = 0;
     int i;
 
+    // Determine receive candidates.
     for (i = 0; i < recv_count; i++)
     {
-        chan_t* chan = recv_channels[i];
+        chan_t* chan = recv_chans[i];
         if (chan_can_recv(chan))
         {
-            candidates[count++] = i;
+            select_op_t op;
+            op.recv = 1;
+            op.chan = chan;
+            op.index = i;
+            candidates[count++] = op;
+        }
+    }
+
+    // Determine send candidates.
+    for (i = 0; i < send_count; i++)
+    {
+        chan_t* chan = send_chans[i];
+        if (chan_can_send(chan))
+        {
+            select_op_t op;
+            op.recv = 0;
+            op.chan = chan;
+            op.msg_in = send_msgs[i];
+            op.index = i + recv_count;
+            candidates[count++] = op;
         }
     }
     
@@ -394,25 +430,49 @@ int chan_select(chan_t* recv_channels[], int recv_count, void** recv_out)
     current_utc_time(&ts);
     srand(ts.tv_nsec);
 
-    int select_idx = candidates[rand() % count];
-    if (chan_recv(recv_channels[select_idx], recv_out) != 0)
+    select_op_t select = candidates[rand() % count];
+    if (select.recv && chan_recv(select.chan, recv_out) != 0)
+    {
+        return -1;
+    }
+    else if (!select.recv && chan_send(select.chan, select.msg_in) != 0)
     {
         return -1;
     }
 
-    return select_idx;
+    return select.index;
 }
 
 static int chan_can_recv(chan_t* chan)
 {
     if (chan->buffered)
     {
-        return chan_size(chan) > 0 ? 1 : 0;
+        return chan_size(chan) > 0;
     }
 
     pthread_mutex_lock(chan->pipe->mu);
     int sender = chan->pipe->sender;
     pthread_mutex_unlock(chan->pipe->mu);
-    return sender > 0 ? 1 : 0;
+    return sender;
 }
 
+static int chan_can_send(chan_t* chan)
+{
+    int send;
+    if (chan->buffered)
+    {
+        // Can send if buffered channel is not full.
+        pthread_mutex_lock(chan->m_mu);
+        send = chan->queue->size < chan->queue->capacity;
+        pthread_mutex_unlock(chan->m_mu);
+    }
+    else
+    {
+        // Can send if unbuffered channel has receiver.
+        pthread_mutex_lock(chan->pipe->mu);
+        send = chan->pipe->reader;
+        pthread_mutex_unlock(chan->pipe->mu);
+    }
+
+    return send;
+}

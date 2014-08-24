@@ -65,6 +65,14 @@ int chan_recv(chan_t* chan, void** data);
 // unbuffered, this will return 0.
 int chan_size(chan_t* chan);
 
-int chan_select(chan_t* recv_channels[], int recv_count, void** recv_out);
+// A select statement chooses which of a set of possible send or receive
+// operations will proceed. The return value indicates which channel's
+// operation has proceeded. If more than one operation can proceed, one is
+// selected randomly. If none can proceed, -1 is returned. Select is intended
+// to be used in conjunction with a switch statement. In the case of a receive
+// operation, the received value will be pointed to by the provided pointer. In
+// the case of a send, the value at the same index as the channel will be sent.
+int chan_select(chan_t* recv_chans[], int recv_count, void** recv_out,
+    chan_t* send_chans[], int send_count, void* send_msgs[]);
 
 #endif
