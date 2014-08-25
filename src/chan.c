@@ -387,6 +387,8 @@ typedef struct
 int chan_select(chan_t* recv_chans[], int recv_count, void** recv_out,
     chan_t* send_chans[], int send_count, void* send_msgs[])
 {
+    // TODO: Add support for blocking selects.
+
     select_op_t candidates[recv_count + send_count];
     int count = 0;
     int i;
