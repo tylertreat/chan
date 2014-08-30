@@ -24,7 +24,7 @@
 #include "queue.h"
 
 
-static int buffered_chan_init(chan_t* chan, int capacity);
+static int buffered_chan_init(chan_t* chan, size_t capacity);
 static int buffered_chan_send(chan_t* chan, void* data);
 static int buffered_chan_recv(chan_t* chan, void** data);
 
@@ -51,16 +51,9 @@ void current_utc_time(struct timespec *ts) {
 
 // Allocates and returns a new channel. The capacity specifies whether the
 // channel should be buffered or not. A capacity of 0 will create an unbuffered
-// channel. Sets errno and returns NULL if initialization failed or the
-// capacity is less than 0.
-chan_t* chan_init(int capacity)
+// channel. Sets errno and returns NULL if initialization failed.
+chan_t* chan_init(size_t capacity)
 {
-    if (capacity < 0)
-    {
-        errno = EINVAL;
-        return NULL;
-    }
-
     chan_t* chan = (chan_t*) malloc(sizeof(chan_t));
     if (!chan)
     {
@@ -90,7 +83,7 @@ chan_t* chan_init(int capacity)
     return chan;
 }
 
-static int buffered_chan_init(chan_t* chan, int capacity)
+static int buffered_chan_init(chan_t* chan, size_t capacity)
 {
     queue_t* queue = queue_init(capacity);
     if (!queue)
