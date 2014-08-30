@@ -34,6 +34,7 @@ static int unbuffered_chan_recv(chan_t* chan, void** data);
 
 static int chan_can_recv(chan_t* chan);
 static int chan_can_send(chan_t* chan);
+static int chan_is_buffered(chan_t* chan);
 
 void current_utc_time(struct timespec *ts) {
 #ifdef __MACH__ 
@@ -68,7 +69,6 @@ chan_t* chan_init(size_t capacity)
             free(chan);
             return NULL;
         }
-        chan->buffered = 1;
     }
     else
     {
@@ -77,7 +77,6 @@ chan_t* chan_init(size_t capacity)
             free(chan);
             return NULL;
         }
-        chan->buffered = 0;
     }
     
     return chan;
@@ -189,7 +188,7 @@ static int unbuffered_chan_init(chan_t* chan)
 // Releases the channel resources.
 void chan_dispose(chan_t* chan)
 {
-    if (chan->buffered)
+    if (chan_is_buffered(chan))
     {
         queue_dispose(chan->queue);
     }
@@ -225,7 +224,7 @@ int chan_close(chan_t* chan)
     {
         // Otherwise close it.
         chan->closed = 1;
-        if (!chan->buffered)
+        if (!chan_is_buffered(chan))
         {
             // Closing pipe will unblock any potential waiting reader.
             close(chan->pipe->rw_pipe[0]);
@@ -259,11 +258,9 @@ int chan_send(chan_t* chan, void* data)
         return -1;
     }
 
-    if (chan->buffered)
-    {
-        return buffered_chan_send(chan, data);
-    }
-    return unbuffered_chan_send(chan, data);
+    return chan_is_buffered(chan) ?
+        buffered_chan_send(chan, data) :
+        unbuffered_chan_send(chan, data);
 }
 
 // Receives a value from the channel. This will block until there is data to
@@ -271,7 +268,7 @@ int chan_send(chan_t* chan, void* data)
 // returned, errno will be set.
 int chan_recv(chan_t* chan, void** data)
 {
-    return chan->buffered ?
+    return chan_is_buffered(chan) ?
         buffered_chan_recv(chan, data) :
         unbuffered_chan_recv(chan, data);
 }
@@ -353,7 +350,7 @@ static int unbuffered_chan_recv(chan_t* chan, void** data)
 int chan_size(chan_t* chan)
 {
     int size = 0;
-    if (chan->buffered)
+    if (chan_is_buffered(chan))
     {
         pthread_mutex_lock(chan->m_mu);
         size = chan->queue->size;
@@ -441,7 +438,7 @@ int chan_select(chan_t* recv_chans[], int recv_count, void** recv_out,
 
 static int chan_can_recv(chan_t* chan)
 {
-    if (chan->buffered)
+    if (chan_is_buffered(chan))
     {
         return chan_size(chan) > 0;
     }
@@ -455,7 +452,7 @@ static int chan_can_recv(chan_t* chan)
 static int chan_can_send(chan_t* chan)
 {
     int send;
-    if (chan->buffered)
+    if (chan_is_buffered(chan))
     {
         // Can send if buffered channel is not full.
         pthread_mutex_lock(chan->m_mu);
@@ -471,4 +468,9 @@ static int chan_can_send(chan_t* chan)
     }
 
     return send;
+}
+
+static int chan_is_buffered(chan_t* chan)
+{
+    return chan->queue != NULL;
 }
