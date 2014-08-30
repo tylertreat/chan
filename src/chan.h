@@ -19,14 +19,14 @@ typedef struct chan_t
     queue_t*         queue;
     
     // Unbuffered channel properties
-    pthread_mutex_t* r_mu;
-    pthread_mutex_t* w_mu;
+    pthread_mutex_t  r_mu;
+    pthread_mutex_t  w_mu;
     int              readers;
     blocking_pipe_t* pipe;
 
     // Shared properties
-    pthread_mutex_t* m_mu;
-    pthread_cond_t*  m_cond;
+    pthread_mutex_t  m_mu;
+    pthread_cond_t   m_cond;
     int              closed;
 } chan_t;
 
