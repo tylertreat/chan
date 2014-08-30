@@ -31,17 +31,17 @@ blocking_pipe_t* blocking_pipe_init()
 
     if (pthread_cond_init(&p->cond, NULL) != 0)
     {
-        free(p);
         pthread_mutex_destroy(&p->mu);
+        free(p);
         return NULL;
     }
 
 
     if (pipe(p->rw_pipe) != 0)
     {
-        free(p);
         pthread_mutex_destroy(&p->mu);
         pthread_cond_destroy(&p->cond);
+        free(p);
         return NULL;
     }
 
