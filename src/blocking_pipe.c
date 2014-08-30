@@ -66,8 +66,6 @@ int blocking_pipe_read(blocking_pipe_t* pipe, void** data)
 {
     pthread_mutex_lock(&pipe->mu);
     pipe->reader = 1;
-    int success = 0;
-
     pthread_cond_signal(&pipe->cond);
     pthread_mutex_unlock(&pipe->mu);
 
