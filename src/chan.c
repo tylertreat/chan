@@ -129,11 +129,12 @@ static int unbuffered_chan_init(chan_t* chan)
     }
 
     blocking_pipe_t* pipe = blocking_pipe_init();
-    if (pipe == NULL)
+    if (!pipe)
     {
         pthread_mutex_destroy(&chan->m_mu);
         pthread_mutex_destroy(&chan->w_mu);
         pthread_mutex_destroy(&chan->r_mu);
+        pthread_cond_destroy(&chan->m_cond);
         return -1;
     }
 
