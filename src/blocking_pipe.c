@@ -68,30 +68,10 @@ int blocking_pipe_read(blocking_pipe_t* pipe, void** data)
     pipe->reader = 1;
     int success = 0;
 
-    void* msg_ptr = malloc(sizeof(void*));
-    if (!msg_ptr)
-    {
-        errno = ENOMEM;
-        success = -1;
-    }
-
     pthread_cond_signal(&pipe->cond);
     pthread_mutex_unlock(&pipe->mu);
 
-    if (success == 0)
-    {
-        success = read(pipe->rw_pipe[0], msg_ptr, sizeof(void*)) > 0 ? 0 : -1;
-        if (!data)
-        {
-            free(msg_ptr);
-        }
-        else
-        {
-            *data = (void*) *(long*) msg_ptr;
-        }
-    }
-
-    return success;
+    return read(pipe->rw_pipe[0], data, sizeof(void*)) > 0 ? 0 : -1;
 }
 
 // Writes the given pointer to the pipe. This will block until a reader is
