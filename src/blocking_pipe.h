@@ -8,11 +8,11 @@
 // reader and writer are ready.
 typedef struct blocking_pipe_t
 {
-    int              reader;
-    int              sender;
-    pthread_mutex_t* mu;
-    pthread_cond_t*  cond;
-    int              rw_pipe[2];
+    int             reader;
+    int             sender;
+    pthread_mutex_t mu;
+    pthread_cond_t  cond;
+    int             rw_pipe[2];
 } blocking_pipe_t;
 
 // Allocates and returns a new blocking pipe. Sets errno and returns NULL if

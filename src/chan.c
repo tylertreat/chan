@@ -403,9 +403,9 @@ static int chan_can_recv(chan_t* chan)
         return chan_size(chan) > 0;
     }
 
-    pthread_mutex_lock(chan->pipe->mu);
+    pthread_mutex_lock(&chan->pipe->mu);
     int sender = chan->pipe->sender;
-    pthread_mutex_unlock(chan->pipe->mu);
+    pthread_mutex_unlock(&chan->pipe->mu);
     return sender;
 }
 
@@ -422,9 +422,9 @@ static int chan_can_send(chan_t* chan)
     else
     {
         // Can send if unbuffered channel has receiver.
-        pthread_mutex_lock(chan->pipe->mu);
+        pthread_mutex_lock(&chan->pipe->mu);
         send = chan->pipe->reader;
-        pthread_mutex_unlock(chan->pipe->mu);
+        pthread_mutex_unlock(&chan->pipe->mu);
     }
 
     return send;
