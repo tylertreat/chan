@@ -294,6 +294,7 @@ static int unbuffered_chan_recv(chan_t* chan, void** data)
     pthread_mutex_lock(&chan->r_mu);
     if (chan_is_closed(chan))
     {
+        pthread_mutex_unlock(&chan->r_mu);
         errno = EPIPE;
         return -1;
     }
