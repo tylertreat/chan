@@ -1,0 +1,23 @@
+{
+  "name": "chan",
+  "version": "0.0.1",
+  "repo": "tylertreat/chan",
+  "description": "Pure C implementation of Go channels",
+  "license": "Apache",
+  "keywords": [
+      "chan",
+      "channel",
+      "concurrency",
+      "synchronization",
+      "go",
+      "golang"
+  ],
+  "src": [
+      "src/blocking_pipe.c",
+      "src/blocking_pipe.h",
+      "src/chan.c",
+      "src/chan.h",
+      "src/queue.c",
+      "src/queue.h"
+  ]
+}
