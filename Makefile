@@ -4,7 +4,7 @@ EXAMPLES ?= examples
 
 AR ?= ar
 CC ?= gcc
-CFLAGS = -Ideps -pedantic -std=c99 -v -Wall -Wextra -lpthread
+CFLAGS = -Ideps -pedantic -std=c99 -v -Wall -Wextra -lpthread -lrt
 
 ifeq ($(APP_DEBUG),true)
 	CFLAGS += -g -O0
