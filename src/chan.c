@@ -141,6 +141,7 @@ static int unbuffered_chan_init(chan_t* chan)
     chan->readers = 0;
     chan->closed = 0;
     chan->pipe = pipe;
+    chan->queue = NULL;
     return 0;
 }
 
@@ -151,12 +152,10 @@ void chan_dispose(chan_t* chan)
     {
         queue_dispose(chan->queue);
     }
-    else
-    {
-        pthread_mutex_destroy(&chan->w_mu);
-        pthread_mutex_destroy(&chan->r_mu);
-        blocking_pipe_dispose(chan->pipe);
-    }
+
+    pthread_mutex_destroy(&chan->w_mu);
+    pthread_mutex_destroy(&chan->r_mu);
+    blocking_pipe_dispose(chan->pipe);
 
     pthread_mutex_destroy(&chan->m_mu);
     pthread_cond_destroy(&chan->m_cond);
