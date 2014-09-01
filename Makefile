@@ -63,4 +63,4 @@ uninstall:
 	rm -rf $(PREFIX)/include/chan/queue.h
 	rm -rf $(PREFIX)/lib/libchan.a
 
-.PHONY: build clean example install uninstall
+.PHONY: build check example clean install uninstall
