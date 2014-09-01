@@ -268,7 +268,11 @@ static int buffered_chan_recv(chan_t* chan, void** data)
         pthread_cond_wait(&chan->m_cond, &chan->m_mu);
     }
 
-    *data = queue_remove(&chan->queue);
+    void* msg = queue_remove(&chan->queue);
+    if (data)
+    {
+        *data = msg;
+    }
 
     if (chan->queue->size == chan->queue->capacity - 1)
     {
