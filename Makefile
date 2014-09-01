@@ -1,12 +1,17 @@
 SRC ?= src
 BUILD ?= build
 EXAMPLES ?= examples
+UNAME := $(shell uname)
 
 AR ?= ar
 CC ?= gcc
-CFLAGS = -Ideps -pedantic -std=c99 -v -Wall -Wextra
+CFLAGS = -Ideps -pedantic -std=c99 -v -Wall -Wextra -lpthread
 
-ifeq ($(APP_DEBUG),true)
+ifeq ($(UNAME), Linux)
+	CFLAGS += -lrt
+endif
+
+ifeq ($(APP_DEBUG), true)
 	CFLAGS += -g -O0
 else
 	CFLAGS += -O2
