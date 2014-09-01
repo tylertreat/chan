@@ -34,7 +34,13 @@ $(BUILD)/lib/libchan.a: $(OBJS)
 	$(AR) -crs $@ $^
 
 clean:
-	rm -rf *.o $(BUILD) $(SRC)/*.o
+	rm -rf *.o $(BUILD) $(SRC)/*.o test
+
+check: test
+	@./test
+
+test: $(SRC)/chan_test.o $(OBJS)
+	$(CC) $^ -o $@ $(CFLAGS)
 
 example: build
 	mkdir -p $(BUILD)/examples
