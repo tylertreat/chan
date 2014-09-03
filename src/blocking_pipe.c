@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#undef __STRICT_ANSI__
 
 #ifdef __APPLE__
 #define _XOPEN_SOURCE
