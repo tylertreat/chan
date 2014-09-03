@@ -1,3 +1,5 @@
+#undef __STRICT_ANSI__
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +8,10 @@
 
 #include "chan.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#define sleep(x) Sleep(x)
+#endif
 
 int passed = 0;
 
