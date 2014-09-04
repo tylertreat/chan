@@ -11,6 +11,10 @@
 
 #include "queue.h"
 
+#if defined(_WIN32) && !defined(ENOBUFS)
+#include <winsock.h>
+#define ENOBUFS WSAENOBUFS
+#endif
 
 // Returns 0 if the queue is not at capacity or is unbounded. Returns 1
 // otherwise.

@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#undef __STRICT_ANSI__
 
 #ifdef __APPLE__
 #define _XOPEN_SOURCE
@@ -8,6 +9,16 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#ifdef _WIN32
+#include <stdio.h>
+#include <fcntl.h>
+
+int pipe(int pipefd[2])
+{
+    return _pipe(pipefd, BUFSIZ, O_BINARY);
+}
+#endif
 
 #include "blocking_pipe.h"
 

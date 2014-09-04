@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#undef __STRICT_ANSI__
 
 #ifdef __APPLE__
 #define _XOPEN_SOURCE
@@ -23,6 +24,20 @@
 #include "chan.h"
 #include "queue.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#define CLOCK_REALTIME 0
+static int clock_gettime (int __attribute__((__unused__)) clockid, struct timespec *tp) {
+    FILETIME ft;
+    ULARGE_INTEGER t64;
+    GetSystemTimeAsFileTime (&ft);
+    t64.LowPart = ft.dwLowDateTime;
+    t64.HighPart = ft.dwHighDateTime;
+    tp->tv_sec = t64.QuadPart / 10000000 - 11644473600;
+    tp->tv_nsec = t64.QuadPart % 10000000 * 100;
+    return 0;
+}
+#endif
 
 static int buffered_chan_init(chan_t* chan, size_t capacity);
 static int buffered_chan_send(chan_t* chan, void* data);
@@ -141,6 +156,7 @@ static int unbuffered_chan_init(chan_t* chan)
     chan->readers = 0;
     chan->closed = 0;
     chan->pipe = pipe;
+    chan->queue = NULL;
     return 0;
 }
 
@@ -151,12 +167,10 @@ void chan_dispose(chan_t* chan)
     {
         queue_dispose(chan->queue);
     }
-    else
-    {
-        pthread_mutex_destroy(&chan->w_mu);
-        pthread_mutex_destroy(&chan->r_mu);
-        blocking_pipe_dispose(chan->pipe);
-    }
+
+    pthread_mutex_destroy(&chan->w_mu);
+    pthread_mutex_destroy(&chan->r_mu);
+    blocking_pipe_dispose(chan->pipe);
 
     pthread_mutex_destroy(&chan->m_mu);
     pthread_cond_destroy(&chan->m_cond);
@@ -269,7 +283,11 @@ static int buffered_chan_recv(chan_t* chan, void** data)
         pthread_cond_wait(&chan->m_cond, &chan->m_mu);
     }
 
-    *data = queue_remove(&chan->queue);
+    void* msg = queue_remove(&chan->queue);
+    if (data)
+    {
+        *data = msg;
+    }
 
     if (chan->queue->size == chan->queue->capacity - 1)
     {
