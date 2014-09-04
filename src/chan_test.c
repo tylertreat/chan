@@ -321,6 +321,38 @@ void test_chan_select()
     test_chan_select_send();
 }
 
+void test_chan_int()
+{
+    chan_t* chan = chan_init(1);
+    int s = 12345, r = 0;
+    chan_send_int(chan, s);
+    chan_recv_int(chan, &r);
+    assert_true(s == r, chan, "Wrong value of int(12345)");
+    pass();
+}
+
+void test_chan_double()
+{
+    chan_t* chan = chan_init(1);
+    double s = 123.45, r = 0;
+    chan_send_double(chan, s);
+    chan_recv_double(chan, &r);
+    assert_true(s == r, chan, "Wrong value of double(123.45)");
+    pass();
+}
+
+void test_chan_buf()
+{
+    chan_t* chan = chan_init(1);
+    char s[256], r[256];
+    strcpy(s, "hello world");
+    chan_send_buf(chan, s, sizeof(s));
+    strcpy(s, "Hello World");
+    chan_recv_buf(chan, &r, sizeof(s));
+    assert_true(memcmp(s, r, sizeof(s)), chan, "Wrong value of buf");
+    pass();
+}
+
 int main()
 {
     test_chan_init();
@@ -328,6 +360,9 @@ int main()
     test_chan_send();
     test_chan_recv();
     test_chan_select();
+    test_chan_int();
+    test_chan_double();
+    test_chan_buf();
     printf("\n%d passed\n", passed);
     return 0;
 }
