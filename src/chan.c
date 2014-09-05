@@ -452,3 +452,99 @@ static int chan_is_buffered(chan_t* chan)
 {
     return chan->queue != NULL;
 }
+
+int chan_send_int(chan_t* chan, int data)
+{
+    int* wrapped = malloc(sizeof(int));
+    if (!wrapped)
+    {
+        return -1;
+    }
+
+    *wrapped = data;
+
+    int success = chan_send(chan, wrapped);
+    if (success != 0)
+    {
+        free(wrapped);
+    }
+
+    return success;
+}
+
+int chan_recv_int(chan_t* chan, int* data)
+{
+    int* wrapped = NULL;
+    int success = chan_recv(chan, (void*) &wrapped);
+    if (wrapped != NULL)
+    {
+        *data = *wrapped;
+        free(wrapped);
+    }
+
+    return success;
+}
+
+int chan_send_double(chan_t* chan, double data)
+{
+    double* wrapped = malloc(sizeof(double));
+    if (!wrapped)
+    {
+        return -1;
+    }
+
+    *wrapped = data;
+
+    int success = chan_send(chan, wrapped);
+    if (success != 0)
+    {
+        free(wrapped);
+    }
+
+    return success;
+}
+
+int chan_recv_double(chan_t* chan, double* data)
+{
+    double* wrapped = NULL;
+    int success = chan_recv(chan, (void*) &wrapped);
+    if (wrapped != NULL)
+    {
+        *data = *wrapped;
+        free(wrapped);
+    }
+
+    return success;
+}
+
+int chan_send_buf(chan_t* chan, void* data, size_t size)
+{
+    void* wrapped = malloc(size);
+    if (!wrapped)
+    {
+        return -1;
+    }
+
+    memcpy(wrapped, data, size);
+
+    int success = chan_send(chan, wrapped);
+    if (success != 0)
+    {
+        free(wrapped);
+    }
+
+    return success;
+}
+
+int chan_recv_buf(chan_t* chan, void* data, size_t size)
+{
+    void* wrapped = NULL;
+    int success = chan_recv(chan, (void*) &wrapped);
+    if (wrapped != NULL)
+    {
+        memcpy(data, wrapped, size);
+        free(wrapped);
+    }
+
+    return success;
+}
