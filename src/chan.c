@@ -456,6 +456,11 @@ static int chan_is_buffered(chan_t* chan)
 int chan_send_int(chan_t* chan, int data)
 {
     int* wrapped = malloc(sizeof(int));
+    if (!wrapped)
+    {
+        return -1;
+    }
+
     *wrapped = data;
 
     int success = chan_send(chan, wrapped);
@@ -483,6 +488,11 @@ int chan_recv_int(chan_t* chan, int* data)
 int chan_send_double(chan_t* chan, double data)
 {
     double* wrapped = malloc(sizeof(double));
+    if (!wrapped)
+    {
+        return -1;
+    }
+
     *wrapped = data;
 
     int success = chan_send(chan, wrapped);
@@ -510,6 +520,11 @@ int chan_recv_double(chan_t* chan, double* data)
 int chan_send_buf(chan_t* chan, void* data, size_t size)
 {
     void* wrapped = malloc(size);
+    if (!wrapped)
+    {
+        return -1;
+    }
+
     memcpy(wrapped, data, size);
 
     int success = chan_send(chan, wrapped);
