@@ -328,6 +328,8 @@ void test_chan_int()
     chan_send_int(chan, s);
     chan_recv_int(chan, &r);
     assert_true(s == r, chan, "Wrong value of int(12345)");
+
+    chan_dispose(chan);
     pass();
 }
 
@@ -338,6 +340,8 @@ void test_chan_double()
     chan_send_double(chan, s);
     chan_recv_double(chan, &r);
     assert_true(s == r, chan, "Wrong value of double(123.45)");
+
+    chan_dispose(chan);
     pass();
 }
 
@@ -350,6 +354,8 @@ void test_chan_buf()
     strcpy(s, "Hello World");
     chan_recv_buf(chan, &r, sizeof(s));
     assert_true(memcmp(s, r, sizeof(s)), chan, "Wrong value of buf");
+
+    chan_dispose(chan);
     pass();
 }
 
