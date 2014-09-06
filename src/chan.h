@@ -73,4 +73,12 @@ int chan_size(chan_t* chan);
 int chan_select(chan_t* recv_chans[], int recv_count, void** recv_out,
     chan_t* send_chans[], int send_count, void* send_msgs[]);
 
+// Typed interface to send/recv chan.
+int chan_send_int(chan_t*, int);
+int chan_send_double(chan_t*, double);
+int chan_send_buf(chan_t*, void*, size_t);
+int chan_recv_int(chan_t*, int*);
+int chan_recv_double(chan_t*, double*);
+int chan_recv_buf(chan_t*, void*, size_t);
+
 #endif
