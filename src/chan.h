@@ -74,10 +74,22 @@ int chan_select(chan_t* recv_chans[], int recv_count, void** recv_out,
     chan_t* send_chans[], int send_count, void* send_msgs[]);
 
 // Typed interface to send/recv chan.
-int chan_send_int(chan_t*, int);
+int chan_send_int32(chan_t*, int32_t);
+int chan_send_int64(chan_t*, int64_t);
+#if ULONG_MAX == 4294967295UL
+# define chan_send_int(c, d) chan_send_int64(c, d)
+#else
+# define chan_send_int(c, d) chan_send_int32(c, d)
+#endif
 int chan_send_double(chan_t*, double);
 int chan_send_buf(chan_t*, void*, size_t);
-int chan_recv_int(chan_t*, int*);
+int chan_recv_int32(chan_t*, int32_t*);
+int chan_recv_int64(chan_t*, int64_t*);
+#if ULONG_MAX == 4294967295UL
+# define chan_recv_int(c, d) chan_recv_int64(c, d)
+#else
+# define chan_recv_int(c, d) chan_recv_int32(c, d)
+#endif
 int chan_recv_double(chan_t*, double*);
 int chan_recv_buf(chan_t*, void*, size_t);
 
