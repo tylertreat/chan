@@ -329,6 +329,16 @@ void test_chan_int()
     chan_recv_int(chan, &r);
     assert_true(s == r, chan, "Wrong value of int(12345)");
 
+    int32_t s32 = 12345, r32 = 0;
+    chan_send_int32(chan, s32);
+    chan_recv_int32(chan, &r32);
+    assert_true(s32 == r32, chan, "Wrong value of int32(12345)");
+
+    int64_t s64 = 12345, r64 = 0;
+    chan_send_int64(chan, s64);
+    chan_recv_int64(chan, &r64);
+    assert_true(s64 == r64, chan, "Wrong value of int64(12345)");
+
     chan_dispose(chan);
     pass();
 }
