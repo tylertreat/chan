@@ -28,6 +28,7 @@ void assert_true(int expression, chan_t* chan, char* msg)
 void pass()
 {
     printf(".");
+    fflush(stdout);
     passed++;
 }
 
