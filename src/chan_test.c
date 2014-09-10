@@ -370,6 +370,25 @@ void test_chan_buf()
     pass();
 }
 
+void test_chan_multi()
+{
+    chan_t* chan = chan_init(5);
+    pthread_t th[100];
+    for (int i = 0; i < 50; ++i) {
+       pthread_create(&th[i], NULL, sender, chan);
+    }
+    sleep(1);
+    for (int i = 50; i < 100; ++i) {
+       pthread_create(&th[i], NULL, receiver, chan);
+    }
+    sleep(1);
+    for (int i = 0; i < 100; ++i) {
+       pthread_join(th[i], NULL);
+    }
+    chan_dispose(chan);
+    pass();
+}
+
 int main()
 {
     test_chan_init();
@@ -380,6 +399,7 @@ int main()
     test_chan_int();
     test_chan_double();
     test_chan_buf();
+    test_chan_multi();
     printf("\n%d passed\n", passed);
     return 0;
 }

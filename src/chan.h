@@ -28,6 +28,8 @@ typedef struct chan_t
     pthread_mutex_t  m_mu;
     pthread_cond_t   m_cond;
     int              closed;
+    int              r_waiting;
+    int              w_waiting;
 } chan_t;
 
 // Allocates and returns a new channel. The capacity specifies whether the

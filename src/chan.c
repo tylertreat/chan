@@ -155,6 +155,8 @@ static int unbuffered_chan_init(chan_t* chan)
 
     chan->readers = 0;
     chan->closed = 0;
+    chan->r_waiting = 0;
+    chan->w_waiting = 0;
     chan->pipe = pipe;
     chan->queue = NULL;
     return 0;
@@ -252,14 +254,16 @@ static int buffered_chan_send(chan_t* chan, void* data)
     while (chan->queue->size == chan->queue->capacity)
     {
         // Block until something is removed.
+        chan->w_waiting++;
         pthread_cond_wait(&chan->m_cond, &chan->m_mu);
+        chan->w_waiting--;
     }
 
     int success = queue_add(&chan->queue, data);
 
-    if (chan->queue->size == 1)
+    if (chan->r_waiting > 0)
     {
-        // If the buffer was previously empty, notify.
+        // Signal waiting reader.
         pthread_cond_signal(&chan->m_cond);
     }
 
@@ -280,7 +284,9 @@ static int buffered_chan_recv(chan_t* chan, void** data)
         }
 
         // Block until something is added.
+        chan->r_waiting++;
         pthread_cond_wait(&chan->m_cond, &chan->m_mu);
+        chan->r_waiting--;
     }
 
     void* msg = queue_remove(&chan->queue);
@@ -289,9 +295,9 @@ static int buffered_chan_recv(chan_t* chan, void** data)
         *data = msg;
     }
 
-    if (chan->queue->size == chan->queue->capacity - 1)
+    if (chan->w_waiting > 0)
     {
-        // If the buffer was previously full, notify.
+        // Signal waiting writer.
         pthread_cond_signal(&chan->m_cond);
     }
 
