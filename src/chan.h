@@ -2,6 +2,7 @@
 #define chan_h
 
 #include <pthread.h>
+#include <stdint.h>
 
 #include "blocking_pipe.h"
 #include "queue.h"
