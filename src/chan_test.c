@@ -389,6 +389,59 @@ void test_chan_multi()
     pass();
 }
 
+void test_chan_multi2()
+{
+    chan_t* chan = chan_init(5);
+    pthread_t th[100];
+    for (int i = 0; i < 100; ++i)
+    {
+        pthread_create(&th[i], NULL, receiver, chan);
+    }
+    sleep(1);
+    assert_true(chan->r_waiting >= 50, chan,
+        "At least half of the receiver threads are waiting");
+
+    // Simulate 5 high-priority writing threads.
+    pthread_mutex_lock(&chan->m_mu);
+    for (int i = 0; i < 5; ++i)
+    {
+        assert_true(0 == queue_add(&chan->queue, "foo"), chan,
+            "Simulate writer thread");
+        pthread_cond_signal(&chan->r_cond); // wakeup reader
+    }
+
+    // Simulate 6th high-priority waiting writer.
+    assert_true(chan->queue->size == chan->queue->capacity, chan,
+        "6th writer has to wait");
+    chan->w_waiting++;
+    // Simulated writer must be woken up by reader.
+    pthread_cond_wait(&chan->w_cond, &chan->m_mu);
+    chan->w_waiting--;
+    pthread_mutex_unlock(&chan->m_mu);
+
+    // Wake up other waiting reader.
+    for (int i = 5; i < 100; )
+    {
+        if (chan_size(chan) < 5)
+        {
+            ++i; // one more woken up reader
+            chan_send(chan, "foo");
+        }
+        else
+        {
+            // pass cpu to reader
+            sched_yield();
+        }
+    }
+
+    for (int i = 0; i < 100; ++i)
+    {
+        pthread_join(th[i], NULL);
+    }
+    chan_dispose(chan);
+    pass();
+}
+
 int main()
 {
     test_chan_init();
@@ -400,6 +453,7 @@ int main()
     test_chan_double();
     test_chan_buf();
     test_chan_multi();
+    test_chan_multi2();
     printf("\n%d passed\n", passed);
     return 0;
 }

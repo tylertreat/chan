@@ -27,7 +27,8 @@ typedef struct chan_t
 
     // Shared properties
     pthread_mutex_t  m_mu;
-    pthread_cond_t   m_cond;
+    pthread_cond_t   r_cond;
+    pthread_cond_t   w_cond;
     int              closed;
     int              r_waiting;
     int              w_waiting;

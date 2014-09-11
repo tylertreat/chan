@@ -135,11 +135,20 @@ static int unbuffered_chan_init(chan_t* chan)
         return -1;
     }
 
-    if (pthread_cond_init(&chan->m_cond, NULL) != 0)
+    if (pthread_cond_init(&chan->r_cond, NULL) != 0)
     {
         pthread_mutex_destroy(&chan->m_mu);
         pthread_mutex_destroy(&chan->w_mu);
         pthread_mutex_destroy(&chan->r_mu);
+        return -1;
+    }
+
+    if (pthread_cond_init(&chan->w_cond, NULL) != 0)
+    {
+        pthread_mutex_destroy(&chan->m_mu);
+        pthread_mutex_destroy(&chan->w_mu);
+        pthread_mutex_destroy(&chan->r_mu);
+        pthread_cond_destroy(&chan->r_cond);
         return -1;
     }
 
@@ -149,7 +158,8 @@ static int unbuffered_chan_init(chan_t* chan)
         pthread_mutex_destroy(&chan->m_mu);
         pthread_mutex_destroy(&chan->w_mu);
         pthread_mutex_destroy(&chan->r_mu);
-        pthread_cond_destroy(&chan->m_cond);
+        pthread_cond_destroy(&chan->r_cond);
+        pthread_cond_destroy(&chan->w_cond);
         return -1;
     }
 
@@ -175,7 +185,8 @@ void chan_dispose(chan_t* chan)
     blocking_pipe_dispose(chan->pipe);
 
     pthread_mutex_destroy(&chan->m_mu);
-    pthread_cond_destroy(&chan->m_cond);
+    pthread_cond_destroy(&chan->r_cond);
+    pthread_cond_destroy(&chan->w_cond);
     free(chan);
 }
 
@@ -205,7 +216,8 @@ int chan_close(chan_t* chan)
             close(chan->pipe->rw_pipe[0]);
             close(chan->pipe->rw_pipe[1]);
         }
-        pthread_cond_signal(&chan->m_cond);
+        pthread_cond_broadcast(&chan->r_cond);
+        pthread_cond_broadcast(&chan->w_cond);
     }
     pthread_mutex_unlock(&chan->m_mu);
     return success;
@@ -255,7 +267,7 @@ static int buffered_chan_send(chan_t* chan, void* data)
     {
         // Block until something is removed.
         chan->w_waiting++;
-        pthread_cond_wait(&chan->m_cond, &chan->m_mu);
+        pthread_cond_wait(&chan->w_cond, &chan->m_mu);
         chan->w_waiting--;
     }
 
@@ -264,7 +276,7 @@ static int buffered_chan_send(chan_t* chan, void* data)
     if (chan->r_waiting > 0)
     {
         // Signal waiting reader.
-        pthread_cond_signal(&chan->m_cond);
+        pthread_cond_signal(&chan->r_cond);
     }
 
     pthread_mutex_unlock(&chan->m_mu);
@@ -285,7 +297,7 @@ static int buffered_chan_recv(chan_t* chan, void** data)
 
         // Block until something is added.
         chan->r_waiting++;
-        pthread_cond_wait(&chan->m_cond, &chan->m_mu);
+        pthread_cond_wait(&chan->r_cond, &chan->m_mu);
         chan->r_waiting--;
     }
 
@@ -298,7 +310,7 @@ static int buffered_chan_recv(chan_t* chan, void** data)
     if (chan->w_waiting > 0)
     {
         // Signal waiting writer.
-        pthread_cond_signal(&chan->m_cond);
+        pthread_cond_signal(&chan->w_cond);
     }
 
     pthread_mutex_unlock(&chan->m_mu);
