@@ -374,17 +374,30 @@ void test_chan_multi()
 {
     chan_t* chan = chan_init(5);
     pthread_t th[100];
-    for (int i = 0; i < 50; ++i) {
+    for (int i = 0; i < 50; ++i)
+    {
        pthread_create(&th[i], NULL, sender, chan);
     }
-    sleep(1);
-    for (int i = 50; i < 100; ++i) {
+
+    for (;;)
+    {
+       pthread_mutex_lock(&chan->m_mu);
+       int all_waiting = chan->w_waiting == 45;
+       pthread_mutex_unlock(&chan->m_mu);
+       if (all_waiting) break;
+       sched_yield();
+    }
+
+    for (int i = 50; i < 100; ++i)
+    {
        pthread_create(&th[i], NULL, receiver, chan);
     }
-    sleep(1);
-    for (int i = 0; i < 100; ++i) {
+
+    for (int i = 0; i < 100; ++i)
+    {
        pthread_join(th[i], NULL);
     }
+
     chan_dispose(chan);
     pass();
 }
@@ -397,9 +410,15 @@ void test_chan_multi2()
     {
         pthread_create(&th[i], NULL, receiver, chan);
     }
-    sleep(1);
-    assert_true(chan->r_waiting >= 50, chan,
-        "At least half of the receiver threads are waiting");
+
+    for (;;)
+    {
+       pthread_mutex_lock(&chan->m_mu);
+       int all_waiting = chan->r_waiting == 100;
+       pthread_mutex_unlock(&chan->m_mu);
+       if (all_waiting) break;
+       sched_yield();
+    }
 
     // Simulate 5 high-priority writing threads.
     pthread_mutex_lock(&chan->m_mu);
@@ -420,24 +439,16 @@ void test_chan_multi2()
     pthread_mutex_unlock(&chan->m_mu);
 
     // Wake up other waiting reader.
-    for (int i = 5; i < 100; )
+    for (int i = 5; i < 100; ++i)
     {
-        if (chan_size(chan) < 5)
-        {
-            ++i; // one more woken up reader
-            chan_send(chan, "foo");
-        }
-        else
-        {
-            // pass cpu to reader
-            sched_yield();
-        }
+        chan_send(chan, "foo");
     }
 
     for (int i = 0; i < 100; ++i)
     {
         pthread_join(th[i], NULL);
     }
+
     chan_dispose(chan);
     pass();
 }
