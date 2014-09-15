@@ -20,7 +20,6 @@
 #include <mach/mach.h>
 #endif
 
-#include "blocking_pipe.h"
 #include "chan.h"
 #include "queue.h"
 
@@ -152,23 +151,11 @@ static int unbuffered_chan_init(chan_t* chan)
         return -1;
     }
 
-    blocking_pipe_t* pipe = blocking_pipe_init();
-    if (!pipe)
-    {
-        pthread_mutex_destroy(&chan->m_mu);
-        pthread_mutex_destroy(&chan->w_mu);
-        pthread_mutex_destroy(&chan->r_mu);
-        pthread_cond_destroy(&chan->r_cond);
-        pthread_cond_destroy(&chan->w_cond);
-        return -1;
-    }
-
-    chan->readers = 0;
     chan->closed = 0;
     chan->r_waiting = 0;
     chan->w_waiting = 0;
-    chan->pipe = pipe;
     chan->queue = NULL;
+    chan->data = NULL;
     return 0;
 }
 
@@ -182,7 +169,6 @@ void chan_dispose(chan_t* chan)
 
     pthread_mutex_destroy(&chan->w_mu);
     pthread_mutex_destroy(&chan->r_mu);
-    blocking_pipe_dispose(chan->pipe);
 
     pthread_mutex_destroy(&chan->m_mu);
     pthread_cond_destroy(&chan->r_cond);
@@ -210,12 +196,6 @@ int chan_close(chan_t* chan)
     {
         // Otherwise close it.
         chan->closed = 1;
-        if (!chan_is_buffered(chan))
-        {
-            // Closing pipe will unblock any potential waiting reader.
-            close(chan->pipe->rw_pipe[0]);
-            close(chan->pipe->rw_pipe[1]);
-        }
         pthread_cond_broadcast(&chan->r_cond);
         pthread_cond_broadcast(&chan->w_cond);
     }
@@ -320,25 +300,66 @@ static int buffered_chan_recv(chan_t* chan, void** data)
 static int unbuffered_chan_send(chan_t* chan, void* data)
 {
     pthread_mutex_lock(&chan->w_mu);
-    int success = blocking_pipe_write(chan->pipe, data);
+    pthread_mutex_lock(&chan->m_mu);
+
+    if (chan->closed)
+    {
+        pthread_mutex_unlock(&chan->m_mu);
+        pthread_mutex_unlock(&chan->w_mu);
+        errno = EPIPE;
+        return -1;
+    }
+
+    chan->data = data;
+    chan->w_waiting++;
+
+    if (chan->r_waiting > 0)
+    {
+        // Signal waiting reader.
+        pthread_cond_signal(&chan->r_cond);
+    }
+
+    // Block until reader consumed chan->data.
+    pthread_cond_wait(&chan->w_cond, &chan->m_mu);
+    chan->w_waiting--;
+
+    pthread_mutex_unlock(&chan->m_mu);
     pthread_mutex_unlock(&chan->w_mu);
-    return success;
+    return 0;
 }
 
 static int unbuffered_chan_recv(chan_t* chan, void** data)
 {
     pthread_mutex_lock(&chan->r_mu);
-    if (chan_is_closed(chan))
+    pthread_mutex_lock(&chan->m_mu);
+
+    while (! chan->closed && ! chan->w_waiting)
     {
+        // Block until writer has set chan->data.
+        chan->r_waiting++;
+        pthread_cond_wait(&chan->r_cond, &chan->m_mu);
+        chan->r_waiting--;
+    }
+
+    if (chan->closed)
+    {
+        pthread_mutex_unlock(&chan->m_mu);
         pthread_mutex_unlock(&chan->r_mu);
         errno = EPIPE;
         return -1;
     }
 
-    int success = blocking_pipe_read(chan->pipe, data);
+    if (data)
+    {
+        *data = chan->data;
+    }
 
+    // Signal waiting writer.
+    pthread_cond_signal(&chan->w_cond);
+
+    pthread_mutex_unlock(&chan->m_mu);
     pthread_mutex_unlock(&chan->r_mu);
-    return success;
+    return 0;
 }
 
 // Returns the number of items in the channel buffer. If the channel is
@@ -439,9 +460,9 @@ static int chan_can_recv(chan_t* chan)
         return chan_size(chan) > 0;
     }
 
-    pthread_mutex_lock(&chan->pipe->mu);
-    int sender = chan->pipe->sender;
-    pthread_mutex_unlock(&chan->pipe->mu);
+    pthread_mutex_lock(&chan->m_mu);
+    int sender = chan->w_waiting > 0;
+    pthread_mutex_unlock(&chan->m_mu);
     return sender;
 }
 
@@ -458,9 +479,9 @@ static int chan_can_send(chan_t* chan)
     else
     {
         // Can send if unbuffered channel has receiver.
-        pthread_mutex_lock(&chan->pipe->mu);
-        send = chan->pipe->reader;
-        pthread_mutex_unlock(&chan->pipe->mu);
+        pthread_mutex_lock(&chan->m_mu);
+        send = chan->r_waiting > 0;
+        pthread_mutex_unlock(&chan->m_mu);
     }
 
     return send;

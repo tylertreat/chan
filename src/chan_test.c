@@ -104,10 +104,20 @@ void test_chan_send_unbuffered()
     pthread_t th;
     pthread_create(&th, NULL, receiver, chan);
 
+    // Wait for reader
+    for (;;)
+    {
+        pthread_mutex_lock(&chan->m_mu);
+        int send = chan->r_waiting > 0;
+        pthread_mutex_unlock(&chan->m_mu);
+        if (send) break;
+        sched_yield();
+    }
+
     assert_true(chan_size(chan) == 0, chan, "Chan size is not 0");
-    assert_true(!chan->pipe->sender, chan, "Chan has sender");
+    assert_true(!chan->w_waiting, chan, "Chan has sender");
     assert_true(chan_send(chan, msg) == 0, chan, "Send failed");
-    assert_true(!chan->pipe->sender, chan, "Chan has sender");
+    assert_true(!chan->w_waiting, chan, "Chan has sender");
     assert_true(chan_size(chan) == 0, chan, "Chan size is not 0");
 
     chan_dispose(chan);
@@ -150,11 +160,11 @@ void test_chan_recv_unbuffered()
     pthread_create(&th, NULL, sender, chan);
 
     assert_true(chan_size(chan) == 0, chan, "Chan size is not 0");
-    assert_true(!chan->pipe->reader, chan, "Chan has reader");
+    assert_true(!chan->r_waiting, chan, "Chan has reader");
     void *msg;
     assert_true(chan_recv(chan, &msg) == 0, chan, "Recv failed");
     assert_true(strcmp(msg, "foo") == 0, chan, "Messages are not equal");
-    assert_true(!chan->pipe->reader, chan, "Chan has reader");
+    assert_true(!chan->r_waiting, chan, "Chan has reader");
     assert_true(chan_size(chan) == 0, chan, "Chan size is not 0");
 
     chan_dispose(chan);

@@ -13,8 +13,6 @@
       "golang"
   ],
   "src": [
-      "src/blocking_pipe.c",
-      "src/blocking_pipe.h",
       "src/chan.c",
       "src/chan.h",
       "src/queue.c",

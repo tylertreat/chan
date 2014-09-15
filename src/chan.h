@@ -4,7 +4,6 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#include "blocking_pipe.h"
 #include "queue.h"
 
 
@@ -22,8 +21,7 @@ typedef struct chan_t
     // Unbuffered channel properties
     pthread_mutex_t  r_mu;
     pthread_mutex_t  w_mu;
-    int              readers;
-    blocking_pipe_t* pipe;
+    void*            data;
 
     // Shared properties
     pthread_mutex_t  m_mu;
