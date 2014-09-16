@@ -31,7 +31,6 @@ all: build
 build: $(BUILD)/lib/libchan.a
 	mkdir -p $(BUILD)/include/chan
 	cp -f $(SRC)/chan.h $(BUILD)/include/chan/chan.h
-	cp -f $(SRC)/blocking_pipe.h $(BUILD)/include/chan/blocking_pipe.h
 	cp -f $(SRC)/queue.h $(BUILD)/include/chan/queue.h
 
 $(BUILD)/lib/libchan.a: $(OBJS)
@@ -58,13 +57,11 @@ install: all
 	mkdir -p $(PREFIX)/include/chan
 	mkdir -p $(PREFIX)/lib
 	cp -f $(SRC)/chan.h $(PREFIX)/include/chan/chan.h
-	cp -f $(SRC)/blocking_pipe.h $(PREFIX)/include/chan/blocking_pipe.h
 	cp -f $(SRC)/queue.h $(PREFIX)/include/chan/queue.h
 	cp -f $(BUILD)/lib/libchan.a $(PREFIX)/lib/libchan.a
 
 uninstall:
 	rm -rf $(PREFIX)/include/chan/chan.h
-	rm -rf $(PREFIX)/include/chan/blocking_pipe.h
 	rm -rf $(PREFIX)/include/chan/queue.h
 	rm -rf $(PREFIX)/lib/libchan.a
 

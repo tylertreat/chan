@@ -8,10 +8,6 @@
 
 #include "chan.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#define sleep(x) Sleep(x)
-#endif
 
 int passed = 0;
 
@@ -30,6 +26,30 @@ void pass()
     printf(".");
     fflush(stdout);
     passed++;
+}
+
+void wait_for_reader(chan_t* chan)
+{
+    for (;;)
+    {
+        pthread_mutex_lock(&chan->m_mu);
+        int send = chan->r_waiting > 0;
+        pthread_mutex_unlock(&chan->m_mu);
+        if (send) break;
+        sched_yield();
+    }
+}
+
+void wait_for_writer(chan_t* chan)
+{
+    for (;;)
+    {
+        pthread_mutex_lock(&chan->m_mu);
+        int recv = chan->w_waiting > 0;
+        pthread_mutex_unlock(&chan->m_mu);
+        if (recv) break;
+        sched_yield();
+    }
 }
 
 void test_chan_init_buffered()
@@ -104,12 +124,15 @@ void test_chan_send_unbuffered()
     pthread_t th;
     pthread_create(&th, NULL, receiver, chan);
 
+    wait_for_reader(chan);
+
     assert_true(chan_size(chan) == 0, chan, "Chan size is not 0");
-    assert_true(!chan->pipe->sender, chan, "Chan has sender");
+    assert_true(!chan->w_waiting, chan, "Chan has sender");
     assert_true(chan_send(chan, msg) == 0, chan, "Send failed");
-    assert_true(!chan->pipe->sender, chan, "Chan has sender");
+    assert_true(!chan->w_waiting, chan, "Chan has sender");
     assert_true(chan_size(chan) == 0, chan, "Chan size is not 0");
 
+    pthread_join(th, NULL);
     chan_dispose(chan);
     pass();
 }
@@ -150,13 +173,14 @@ void test_chan_recv_unbuffered()
     pthread_create(&th, NULL, sender, chan);
 
     assert_true(chan_size(chan) == 0, chan, "Chan size is not 0");
-    assert_true(!chan->pipe->reader, chan, "Chan has reader");
+    assert_true(!chan->r_waiting, chan, "Chan has reader");
     void *msg;
     assert_true(chan_recv(chan, &msg) == 0, chan, "Recv failed");
     assert_true(strcmp(msg, "foo") == 0, chan, "Messages are not equal");
-    assert_true(!chan->pipe->reader, chan, "Chan has reader");
+    assert_true(!chan->r_waiting, chan, "Chan has reader");
     assert_true(chan_size(chan) == 0, chan, "Chan size is not 0");
 
+    pthread_join(th, NULL);
     chan_dispose(chan);
     pass();
 }
@@ -203,7 +227,7 @@ void test_chan_select_recv()
 
     pthread_t th;
     pthread_create(&th, NULL, sender, chan1);
-    sleep(1);
+    wait_for_writer(chan1);
 
     switch(chan_select(chans, 2, &recv, NULL, 0, NULL))
     {
@@ -240,6 +264,7 @@ void test_chan_select_recv()
             break;
     }
 
+    pthread_join(th, NULL);
     chan_dispose(chan1);
     chan_dispose(chan2);
     pass();
@@ -282,7 +307,7 @@ void test_chan_select_send()
 
     pthread_t th;
     pthread_create(&th, NULL, receiver, chan1);
-    sleep(1);
+    wait_for_reader(chan1);
 
     switch(chan_select(NULL, 0, NULL, chans, 2, msg))
     {
@@ -311,6 +336,7 @@ void test_chan_select_send()
             break;
     }
 
+    pthread_join(th, NULL);
     chan_dispose(chan1);
     chan_dispose(chan2);
     pass();
