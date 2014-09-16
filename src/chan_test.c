@@ -120,6 +120,7 @@ void test_chan_send_unbuffered()
     assert_true(!chan->w_waiting, chan, "Chan has sender");
     assert_true(chan_size(chan) == 0, chan, "Chan size is not 0");
 
+    pthread_join(th, NULL);
     chan_dispose(chan);
     pass();
 }
@@ -167,6 +168,7 @@ void test_chan_recv_unbuffered()
     assert_true(!chan->r_waiting, chan, "Chan has reader");
     assert_true(chan_size(chan) == 0, chan, "Chan size is not 0");
 
+    pthread_join(th, NULL);
     chan_dispose(chan);
     pass();
 }
@@ -250,6 +252,7 @@ void test_chan_select_recv()
             break;
     }
 
+    pthread_join(th, NULL);
     chan_dispose(chan1);
     chan_dispose(chan2);
     pass();
@@ -321,6 +324,7 @@ void test_chan_select_send()
             break;
     }
 
+    pthread_join(th, NULL);
     chan_dispose(chan1);
     chan_dispose(chan2);
     pass();
