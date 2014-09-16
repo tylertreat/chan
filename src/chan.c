@@ -333,7 +333,7 @@ static int unbuffered_chan_recv(chan_t* chan, void** data)
     pthread_mutex_lock(&chan->r_mu);
     pthread_mutex_lock(&chan->m_mu);
 
-    while (! chan->closed && ! chan->w_waiting)
+    while (!chan->closed && !chan->w_waiting)
     {
         // Block until writer has set chan->data.
         chan->r_waiting++;
