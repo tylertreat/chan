@@ -25,9 +25,9 @@ static inline int queue_at_capacity(queue_t* queue)
 }
 
 // Allocates and returns a new queue. The capacity specifies the maximum
-// number of items that can be in the queue at one time. A capacity lower 0 
-// or greater INT_MAX/sizeof(void*) is considered an error. 
-// Returns NULL if initialization failed.
+// number of items that can be in the queue at one time. A capacity greater
+// than INT_MAX / sizeof(void*) is considered an error. Returns NULL if
+// initialization failed.
 queue_t* queue_init(size_t capacity)
 {
     if (capacity > INT_MAX/sizeof(void*))
@@ -40,7 +40,7 @@ queue_t* queue_init(size_t capacity)
     void**   data  = (void**) malloc(capacity * sizeof(void*));
     if (!queue || !data)
     {
-        // in case of free(NULL) no operation is performed
+        // In case of free(NULL), no operation is performed.
         free(queue);
         free(data);   
         errno = ENOMEM;
