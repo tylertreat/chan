@@ -17,8 +17,7 @@
 #define ENOBUFS WSAENOBUFS
 #endif
 
-// Returns 0 if the queue is not at capacity or is unbounded. Returns 1
-// otherwise.
+// Returns 0 if the queue is not at capacity. Returns 1 otherwise.
 static inline int queue_at_capacity(queue_t* queue)
 {
     return queue->size >= queue->capacity;
