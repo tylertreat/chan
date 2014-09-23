@@ -479,11 +479,6 @@ void test_chan_multi2()
     pass();
 }
 
-void test_chan_capacity()
-{
-
-}
-
 int main()
 {
     test_chan_init();
@@ -496,7 +491,6 @@ int main()
     test_chan_buf();
     test_chan_multi();
     test_chan_multi2();
-    test_chan_capacity();
     printf("\n%d passed\n", passed);
     return 0;
 }
