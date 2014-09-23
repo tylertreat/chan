@@ -251,7 +251,7 @@ static int buffered_chan_send(chan_t* chan, void* data)
         chan->w_waiting--;
     }
 
-    int success = queue_add(&chan->queue, data);
+    int success = queue_add(chan->queue, data);
 
     if (chan->r_waiting > 0)
     {
@@ -281,7 +281,7 @@ static int buffered_chan_recv(chan_t* chan, void** data)
         chan->r_waiting--;
     }
 
-    void* msg = queue_remove(&chan->queue);
+    void* msg = queue_remove(chan->queue);
     if (data)
     {
         *data = msg;

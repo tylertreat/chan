@@ -450,7 +450,7 @@ void test_chan_multi2()
     pthread_mutex_lock(&chan->m_mu);
     for (int i = 0; i < 5; ++i)
     {
-        assert_true(0 == queue_add(&chan->queue, "foo"), chan,
+        assert_true(0 == queue_add(chan->queue, "foo"), chan,
             "Simulate writer thread");
         pthread_cond_signal(&chan->r_cond); // wakeup reader
     }
