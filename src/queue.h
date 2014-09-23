@@ -2,15 +2,7 @@
 #define queue_h
 
 
-// Defines a single item in the queue.
-typedef struct _node_t
-{
-    struct _node_t* next;
-    struct _node_t* prev;
-    void*           value;
-} _node_t;
-
-// Defines a circular, doubly-linked list which acts as a FIFO queue.
+// Defines a circular buffer which acts as a FIFO queue.
 typedef struct queue_t
 {
     int    size;
@@ -20,9 +12,9 @@ typedef struct queue_t
 } queue_t;
 
 // Allocates and returns a new queue. The capacity specifies the maximum
-// number of items that can be in the queue at one time. A capacity lower 0 
-// or greater INT_MAX/sizeof(void*) is considered an error. 
-// Returns NULL if initialization failed.
+// number of items that can be in the queue at one time. A capacity greater
+// than INT_MAX / sizeof(void*) is considered an error. Returns NULL if
+// initialization failed.
 queue_t* queue_init(size_t capacity);
 
 // Releases the queue resources.
