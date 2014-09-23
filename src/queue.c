@@ -30,7 +30,7 @@ static inline int queue_at_capacity(queue_t* queue)
 // initialization failed.
 queue_t* queue_init(size_t capacity)
 {
-    if (capacity > INT_MAX/sizeof(void*))
+    if (capacity > INT_MAX / sizeof(void*))
     {
         errno = EINVAL;
         return NULL;
