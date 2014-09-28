@@ -1,6 +1,6 @@
 {
   "name": "chan",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "repo": "tylertreat/chan",
   "description": "Pure C implementation of Go channels",
   "license": "Apache",
