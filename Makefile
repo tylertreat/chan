@@ -19,7 +19,7 @@ endif
 
 PREFIX ?= /usr/local
 
-SRCS += $(wildcard $(SRC)/*.c)
+SRCS += $(filter-out $(SRC)/chan_test.c, $(wildcard $(SRC)/*.c))
 
 OBJS += $(SRCS:.c=.o)
 
