@@ -30,8 +30,6 @@ examples/close
 examples/select
 examples/unbuffered
 src/chan_test
-src/chan_test.log
-src/chan_test.trs
 
 # autotools
 Makefile
@@ -52,6 +50,8 @@ Makefile.in
 .libs
 .deps
 .dirstamp
+*.log
+*.trs
 
 # editors
 *.swp
