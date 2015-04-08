@@ -1,6 +1,6 @@
 lib_LTLIBRARIES = libchan.la
 libchan_la_SOURCES = src/chan.c src/queue.c
-libchan_la_LIBADD = -lpthread
+libchan_la_LIBADD = -lpthread -lrt
 pkginclude_HEADERS = src/chan.h src/queue.h
 
 check_PROGRAMS = src/chan_test
