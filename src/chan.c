@@ -321,7 +321,6 @@ static int unbuffered_chan_send(chan_t* chan, void* data)
 
     // Block until reader consumed chan->data.
     pthread_cond_wait(&chan->w_cond, &chan->m_mu);
-    chan->w_waiting--;
 
     pthread_mutex_unlock(&chan->m_mu);
     pthread_mutex_unlock(&chan->w_mu);
@@ -353,6 +352,7 @@ static int unbuffered_chan_recv(chan_t* chan, void** data)
     {
         *data = chan->data;
     }
+    chan->w_waiting--;
 
     // Signal waiting writer.
     pthread_cond_signal(&chan->w_cond);
