@@ -17,7 +17,7 @@ int main()
     switch(chan_select(&messages, 1, &msg, NULL, 0, NULL))
     {
         case 0:
-            printf("received message %s\n", msg);
+            printf("received message %s\n", (char *)msg);
             break;
         default:
             printf("no message received\n");
@@ -28,7 +28,7 @@ int main()
     switch(chan_select(NULL, 0, NULL, &messages, 1, &msg))
     {
         case 0:
-            printf("sent message %s\n", msg);
+            printf("sent message %s\n", (char *)msg);
             break;
         default:
             printf("no message sent\n");
@@ -41,10 +41,10 @@ int main()
     switch(chan_select(chans, 2, &msg, NULL, 0, NULL))
     {
         case 0:
-            printf("received message %s\n", msg);
+            printf("received message %s\n", (char *)msg);
             break;
         case 1:
-            printf("received signal %s\n", msg);
+            printf("received signal %s\n", (char *)msg);
             break;
         default:
             printf("no activity\n");

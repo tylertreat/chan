@@ -22,7 +22,7 @@ int main()
     // Receive blocks until sender is ready.
     void* msg;
     chan_recv(chan, &msg);
-    printf("%s\n", msg);
+    printf("%s\n", (char *)msg);
 
     // Clean up channel.
     chan_dispose(chan);

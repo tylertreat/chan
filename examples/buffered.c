@@ -13,10 +13,10 @@ int main()
     // Later receive the values.
     void* msg;
     chan_recv(chan, &msg);
-    printf("%s\n", msg);
+    printf("%s\n", (char *)msg);
 
     chan_recv(chan, &msg);
-    printf("%s\n", msg);
+    printf("%s\n", (char *)msg);
 
     // Clean up channel.
     chan_dispose(chan);

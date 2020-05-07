@@ -12,7 +12,7 @@ void* worker()
     void* job;
     while (chan_recv(jobs, &job) == 0)
     {
-        printf("received job %d\n", (int) job);
+        printf("received job %ld\n", (long) job);
     }
 
     // Notify that all jobs were received.
